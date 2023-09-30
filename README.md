@@ -4,9 +4,4 @@ This repo contains a minimal hello world application written in Node. This repo 
 
 ## Run locally
 
-```bash
-npm install
-npm start
-```
-# node-red-smart-scheduler
-# node-red-smart-scheduler
+

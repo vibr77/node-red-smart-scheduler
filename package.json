@@ -1,0 +1,29 @@
+{
+  "name": "node-red-contrib-vib-smart-scheduler",
+  "version": "0.0.1",
+  "description": "lower-case-node",
+  "author": "Vincent Besson <vincent@besson.be>",
+  "main": "smart-scheduler.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vibr77/node-red-smart-scheduler.git"
+  },
+  "dependencies": {
+    "axios": "^0.21.1",
+    "moment": "^2.29.4",
+    "PubSub": "^4.0.0",
+    "suncalc": "^1.8.0"
+  },
+  "node-red": {
+    "nodes": {
+      "smart-scheduler": "smart-scheduler.js"
+    }
+  },
+  "keywords": [
+    "node-red"
+  ],
+  "os": [
+    "linux",
+    "darwin"
+  ]
+}
