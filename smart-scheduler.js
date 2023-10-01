@@ -174,7 +174,6 @@ module.exports = function(RED) {
 
             // Only send anything if the state have changed, on trigger and when configured to output on a minutely basis.
             
-
             node.log("-->before sending");
             node.log("   node.activeRuleIdx:"+node.activeRuleIdx);
             node.log("   node.prevRuleIdx:"+node.prevRuleIdx);
@@ -189,10 +188,13 @@ module.exports = function(RED) {
             if (node.manualTrigger || 
                 node.triggerMode == 'triggerMode.minutely' || 
                 !isEqual(node.activeRuleIdx, node.prevRuleIdx) || 
-                !isEqual(node.activeSp, node.prevSp)) {
+                !isEqual(node.activeSp, node.prevSp) || node.firstEval==true) {
                 
-                if (!node.firstEval && !node.noout){
+                node.log("   in condition");
+                
+                if (/*!node.firstEval &&*/ !node.noout){
                     node.send(msg);
+                    node.log("   output msg:"+JSON.stringify(msg));
                     node.noout=false;
                 }else if (node.noout==true)
                     node.noout=false;
@@ -219,6 +221,8 @@ module.exports = function(RED) {
                 var now = moment();
                 if (now> ovrM.add()){
                     node.override='auto';
+                    node.log("   exceed OverrideDuration");
+                    node.log("   override=manual->auto");
                 }
             }
 
@@ -255,6 +259,12 @@ module.exports = function(RED) {
                 }
 
                 if (msg.payload=="override"){
+
+                    if (msg.sp=== undefined || isNaN(msg.sp) || parseFloat(msg.sp)<0 || parseFloat(msg.sp)>35){ //<----------- Todo define Max & Min in config
+                        node.warn('received trigger missing or invalid msg.sp number');
+                        return;
+                    }
+                       
                     node.override="manual";
                     var now = new Date();
                     node.overrideTs=now.toISOString();
@@ -277,13 +287,11 @@ module.exports = function(RED) {
 
         // Run initially directly after start / deploy.
         if (node.triggerMode != 'triggerMode.statechange') {
-            node.firstEval = false
             setTimeout(evaluate, 1000)
         }
 
         node.on('close', function() {
             clearInterval(node.evalInterval)
-            clearInterval(node.rndInterval)
         })
 
     }
