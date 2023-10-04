@@ -1,7 +1,7 @@
 
 /*
 __   _____ ___ ___        Author: Vincent BESSON
- \ \ / /_ _| _ ) _ \      Release: 0.10
+ \ \ / /_ _| _ ) _ \      Release: 0.11
   \ V / | || _ \   /      Date: 20230930
    \_/ |___|___/_|_\      Description: Nodered Heating Scheduler
                 2023      Licence: Creative Commons
