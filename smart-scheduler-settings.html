@@ -1,0 +1,68 @@
+<script type="text/javascript">
+  RED.nodes.registerType('smart-scheduler-settings', {
+    category: 'config',
+    defaults: {
+      name: {value: 'my settings', required: true},
+      mqttHost:{value: 'myhost.com', required: true},
+      mqttPort:{value: '1883', required: true},
+      mqttUser:{value: '', required: true},
+      mqttPassword:{value: '', required: true},
+      mqttRootPath:{value: 'homeassistant', required: true},
+    },
+    label: function () {
+      return this.name
+    },
+    oneditprepare: function () {
+      var node = this
+     
+
+     
+    },
+    oneditsave: function () {
+      var node = this
+      
+    },
+    oneditcancel: function () {
+      var node = this
+     
+    },
+  })
+</script>
+
+<script type="text/x-red" data-template-name="smart-scheduler-settings">
+  <div class="form-row">
+    <label for="node-config-input-name"><i class="icon-bookmark"></i> Name</label>
+    <input type="text" id="node-config-input-name">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-mqttHost"><i class="icon-globe"></i> MQTT Host</label>
+    <input type="text" id="node-config-input-mqttHost">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-mqttPort"><i class="icon-globe"></i> MQTT Port</label>
+    <input type="text" id="node-config-input-mqttPort">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-mqttUser"><i class="icon-globe"></i> Username</label>
+    <input type="text" id="node-config-input-mqttUser">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-mqttPassword"><i class="icon-globe"></i> Password</label>
+    <input type="password" id="node-config-input-mqttPassword">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-mqttRootPath"><i class="icon-globe"></i> Root path</label>
+    <input type="text" id="node-config-input-mqttRootPath">
+  </div>
+
+
+
+</script>
+
+<script type="text/x-red" data-help-name="smart-scheduler-settings">
+  <h3>Settings</h3>
+  <dl class="message-properties">
+    <dt>Latitude & Longitude<span class="property-type">number</span></dt>
+    <dd>If the browser support geolocation the Latitude and Longitude will be updated to the current position when created. This position might not be accurate, so please verify that it is as good as you want it.</dd>
+  </dl>
+</script>

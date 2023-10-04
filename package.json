@@ -9,14 +9,16 @@
     "url": "https://github.com/vibr77/node-red-smart-scheduler.git"
   },
   "dependencies": {
+    "@fullcalendar/scrollgrid": "^6.1.9",
     "axios": "^0.21.1",
     "moment": "^2.29.4",
-    "PubSub": "^4.0.0",
+    "mqtt": "^5.0.5",
     "suncalc": "^1.8.0"
   },
   "node-red": {
     "nodes": {
-      "smart-scheduler": "smart-scheduler.js"
+      "smart-scheduler": "smart-scheduler.js",
+      "smart-scheduler-settings": "smart-scheduler-settings.js"
     }
   },
   "keywords": [

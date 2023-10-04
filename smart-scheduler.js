@@ -8,7 +8,17 @@ __   _____ ___ ___        Author: Vincent BESSON
 ______________________
 */ 
 
+/*
+TODO:
+-----
+
++ now correct date in calendar
+
+*/
+
+
 var moment = require('moment'); // require
+const mqtt = require("mqtt");
 
 module.exports = function(RED) {
     'use strict'
@@ -18,11 +28,12 @@ module.exports = function(RED) {
  
     var SmartScheduler = function(n) {
         RED.nodes.createNode(this, n)
-        this.settings = RED.nodes.getNode(n.settings) // Get global settings
+       
         this.events = JSON.parse(n.events)
         this.topic = n.topic
         this.rules = n.rules
         this.defaultSp=n.defaultSp
+        this.name=n.name ? n.name : "smartscheduler";
         this.triggerMode = n.triggerMode ? n.triggerMode : 'trigger.statechange.startup'
         
         this.override = n.override ? n.override : 'auto'
@@ -42,8 +53,54 @@ module.exports = function(RED) {
         this.manualTrigger = false;
         this.settingChanged=n.settingChanged ? n.settingChanged:"0";
         this.noout=false;
+        this.mqttclient=null;
+        this.mqttstack=[];
+        var node = this;
 
-        var node = this
+        this.mqttSettings = RED.nodes.getNode(n.mqttSettings);
+        
+
+        if ( this.mqttSettings?.mqttHost);
+            node.log(this.mqttSettings?.mqttHost);
+        
+            // START OF MQTT
+       if (this.mqttPrefix && this.mqttSettings.mqttRootPath)
+            this.mqttPrefix=this.mqttSettings.mqttRootPath
+       else 
+            this.mqttPrefix="homeassistant";
+        
+        this.uniqueId=n.uniqueId ? n.uniqueId : "SmartScheduler_1";
+
+        this.adv_mode_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/mode/config";
+        this.state_mode_topic=this.mqttPrefix+"/"+node.uniqueId+"/mode/state";
+
+        this.adv_current_sp_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/current_sp/config";
+        this.state_current_sp_topic=this.mqttPrefix+"/"+node.uniqueId+"/current_sp/state";
+
+        this.adv_previous_sp_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/previous_sp/config";
+        this.state_previous_sp_topic=this.mqttPrefix+"/"+node.uniqueId+"/previous_sp/state";
+
+        this.adv_current_event_name_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/current_event_name/config";
+        this.state_current_event_name_topic=this.mqttPrefix+"/"+node.uniqueId+"/current_event_name/state";
+
+        this.adv_current_event_start_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/current_event_start/config";
+        this.state_current_event_start_topic=this.mqttPrefix+"/"+node.uniqueId+"/current_event_start/state";
+
+        this.adv_current_event_end_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/current_event_end/config";
+        this.state_current_event_end_topic=this.mqttPrefix+"/"+node.uniqueId+"/current_event_end/state";
+
+
+        this.dev={
+            ids:[node.uniqueId],
+            name:node.uniqueId,
+            mdl:"Smart-Scheduler",
+            mf:"VIBR",
+            sw:"0.34",
+            hw_version:"1.0"
+        }
+
+        // END OF MQTT
+        //
 
         function isEqual(a, b) {
             // simpler and more what we want compared to RED.utils.compareObjects()
@@ -95,12 +152,57 @@ module.exports = function(RED) {
                     hasSpchanged:hasSpchanged
                 }
 
+                if (node.mqttclient!=null && node.mqttstack.length<100){
+                    let mqttmsg={topic:node.state_mode_topic,payload:{value:"Override"},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_current_sp_topic,payload:{value:node.overrideSp},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_previous_sp_topic,payload:{value:node.prevSp},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+                    
+                    mqttmsg={topic:node.state_current_event_name_topic,payload:{value:"None"},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_current_event_start_topic,payload:{value:"-"},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_current_event_end_topic,payload:{value:"-"},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    sendMqtt();
+                }
+
                 node.status({
                     fill:  'yellow',
                     shape: 'dot',
                     text:("override sp "+node.overrideSp+" °C, "+diff+" min left")
                 });               
             }else if (matchingEvent.ruleIdx==-1){
+
+                if (node.mqttclient!=null && node.mqttstack.length<100 ){
+                    let mqttmsg={topic:node.state_mode_topic,payload:{value:"Default"},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+                    
+                    mqttmsg={topic:node.state_current_sp_topic,payload:{value:node.defaultSp},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_previous_sp_topic,payload:{value:node.prevSp},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+                    
+                    mqttmsg={topic:node.state_current_event_name_topic,payload:{value:"None"},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+                
+                    mqttmsg={topic:node.state_current_event_start_topic,payload:{value:"-"},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_current_event_end_topic,payload:{value:"-"},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    sendMqtt();
+                }
+
                 node.activeSp=node.defaultSp;
                 
                 if (parseFloat(node.activeSp)!=parseFloat(node.prevSp))
@@ -142,22 +244,51 @@ module.exports = function(RED) {
 
                 var period=dayStr[m_s.days()]+" "+d_s+" - "+dayStr[m_e.days()]+" "+d_e;
 
+                let r=node.rules.find(({ruleIdx}) => parseInt(ruleIdx)==parseInt(matchingEvent.ruleIdx));
+                if (r===undefined){
+                    node.error("rule should not be undefined");
+                    return;
+                }
+
+                if (node.mqttclient!=null && node.mqttstack.length<100){
+                    let mqttmsg={topic:node.state_mode_topic,payload:{value:"Auto"},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_current_sp_topic,payload:{value:r.spTemp},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+                    
+                    mqttmsg={topic:node.state_previous_sp_topic,payload:{value:node.prevSp},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_current_event_name_topic,payload:{value:r.setName},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_current_event_start_topic,payload:{value:d_s},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_current_event_end_topic,payload:{value:d_e},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    sendMqtt();
+                }
+
                 node.status({
                     fill:  'blue',
                     shape: 'dot',
-                    text:(node.rules[matchingEvent.ruleIdx].setName+" "+node.rules[matchingEvent.ruleIdx].spTemp+" °C "+period)
+                    text:(node.rules[matchingEvent.ruleIdx].setName+" "+r.spTemp+" °C "+period)
                 });
 
-                node.activeSp=node.rules[matchingEvent.ruleIdx].spTemp;
+                node.activeSp=r.spTemp;
+
                 if (parseFloat(node.activeSp)!=parseFloat(node.prevSp))
                     hasSpchanged=true;
 
                 msg.payload={};
 
                 msg.payload={
-                    setPoint:parseFloat(node.rules[matchingEvent.ruleIdx].spTemp),
+                    setPoint:parseFloat(r.spTemp),
                     prevSetPoint:parseFloat(node.prevSp),
-                    setName:node.rules[matchingEvent.ruleIdx].setName,
+                    setName:r.setName,
                     short_start:d_s,
                     short_end:d_e,
                     start:event.start,
@@ -169,12 +300,11 @@ module.exports = function(RED) {
                     override:node.override,
                     hasSpchanged:hasSpchanged
                 }
-               
             }
 
             // Only send anything if the state have changed, on trigger and when configured to output on a minutely basis.
             
-            node.log("-->before sending");
+            node.log("-->setState(matchingEvent) output:");
             node.log("   node.activeRuleIdx:"+node.activeRuleIdx);
             node.log("   node.prevRuleIdx:"+node.prevRuleIdx);
             node.log("   node.activeSp:"+node.activeSp);
@@ -189,11 +319,9 @@ module.exports = function(RED) {
                 node.triggerMode == 'triggerMode.minutely' || 
                 !isEqual(node.activeRuleIdx, node.prevRuleIdx) || 
                 !isEqual(node.activeSp, node.prevSp) || node.firstEval==true) {
-                
-                node.log("   in condition");
-                
+                                
                 if (/*!node.firstEval &&*/ !node.noout){
-                    node.send(msg);
+                    node.send([msg,null]);
                     node.log("   output msg:"+JSON.stringify(msg));
                     node.noout=false;
                 }else if (node.noout==true)
@@ -206,6 +334,99 @@ module.exports = function(RED) {
 
             node.firstEval = false
             node.manualTrigger = false
+        }
+
+        function mqttAdvertise(){
+            
+            var msg={};
+        
+            msg.payload={
+                name:"Mode",
+                uniq_id:node.uniqueId+"MODE",
+                icon:"mdi:cog-clockwise",
+                qos:0,
+                retain:true,
+                state_topic:node.state_mode_topic,
+                value_template:"{{value_json.value}}",
+                dev:node.dev
+            }
+            
+            let mqttmsg={topic:node.adv_mode_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
+            node.mqttstack.push(mqttmsg);
+
+            msg.payload={
+                name:"Current Setpoint",
+                uniq_id:node.uniqueId+"SP",
+                icon:"mdi:thermometer",
+                qos:0,
+                retain:true,
+                unit_of_measurement:"°C",
+                state_topic:node.state_current_sp_topic,
+                value_template:"{{value_json.value}}",
+                dev:node.dev
+            }
+
+            mqttmsg={topic:node.adv_current_sp_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
+            node.mqttstack.push(mqttmsg);
+
+            msg.payload={
+                name:"Previous Setpoint",
+                uniq_id:node.uniqueId+"prevSP",
+                icon:"mdi:thermometer",
+                qos:0,
+                retain:true,
+                unit_of_measurement:"°C",
+                state_topic:node.state_previous_sp_topic,
+                value_template:"{{value_json.value}}",
+                dev:node.dev
+            }
+
+            mqttmsg={topic:node.adv_previous_sp_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
+            node.mqttstack.push(mqttmsg);
+
+            msg.payload={
+                name:"Current event",
+                uniq_id:node.uniqueId+"EVNAME",
+                icon:"mdi:calendar-text-outline",
+                qos:0,
+                retain:true,
+                state_topic:node.state_current_event_name_topic,
+                value_template:"{{value_json.value}}",
+                dev:node.dev 
+            }
+
+            mqttmsg={topic:node.adv_current_event_name_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
+            node.mqttstack.push(mqttmsg);
+
+            msg.payload={
+                name:"Event start",
+                uniq_id:node.uniqueId+"EVSTART",
+                icon:"mdi:clock-time-eight-outline",
+                qos:0,
+                retain:true,
+                state_topic:node.state_current_event_start_topic,
+                value_template:"{{value_json.value}}",
+                dev:node.dev
+            }
+
+            mqttmsg={topic:node.adv_current_event_start_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
+            node.mqttstack.push(mqttmsg);
+
+            msg.payload={
+                name:"Event end",
+                uniq_id:node.uniqueId+"EVEND",
+                icon:"mdi:clock-time-four-outline",
+                qos:0,
+                retain:true,
+                state_topic:node.state_current_event_end_topic,
+                value_template:"{{value_json.value}}",
+                dev:node.dev
+            }
+
+            mqttmsg={topic:node.adv_current_event_end_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
+            node.mqttstack.push(mqttmsg);
+
+            sendMqtt();
         }
 
         function evaluate() {
@@ -237,11 +458,8 @@ module.exports = function(RED) {
         node.on('input', function(msg) {
             msg.payload = msg.payload.toString() // Make sure we have a string.
             
-            console.log(msg.payload);
-
             if (msg.payload.match(/^(1|on|0|off|auto|override|trigger)$/i)) {
                 
-               
                 if (msg.payload == '1' || msg.payload == 'trigger' || msg.payload == 'on'){
                     node.manualTrigger = true;
                 }
@@ -277,7 +495,7 @@ module.exports = function(RED) {
 
                     node.log(msg);
                 }
-                //console.log("manualT:"+node.manualTrigger)
+                
                 evaluate()
             } else node.warn('Failed to interpret incoming msg.payload. Ignoring it!')
         })
@@ -290,6 +508,79 @@ module.exports = function(RED) {
             setTimeout(evaluate, 1000)
         }
 
+        if (node.mqttSettings && node.mqttSettings.mqttHost){
+            
+            const protocol = 'mqtt'
+            const host = node.mqttSettings.mqttHost
+            const port = node.mqttSettings.mqttPort
+            const clientId=`mqtt_${Math.random().toString(16).slice(3)}`;
+            const connectUrl = `${protocol}://${host}:${port}`
+           
+            //node.log("user:["+node.mqttSettings.mqttUser+"]");
+            //node.log("pass:["+node.mqttSettings.mqttPassword+"]");
+            //node.log("mqtt.connectUrl:"+connectUrl);
+            //node.log("clientId:"+clientId);
+
+            node.mqttclient = mqtt.connect(connectUrl, {
+                clientId,
+                clean: true,
+                keepalive:60,
+                connectTimeout: 4000,
+                username: node.mqttSettings.mqttUser,
+                password: node.mqttSettings.mqttPassword,
+                reconnectPeriod: 1000,
+            });
+
+            node.mqttclient.on('error', function (error) {
+                node.warn("MQTT error:"+error);
+            });
+        
+            node.mqttclient.on('connect', () => {
+
+                node.log('MQTT Connected start dequeuing'); 
+                let msg=node.mqttstack.shift();
+            
+                while (msg!==undefined){
+                    if (msg.topic===undefined || msg.payload===undefined)
+                        return;
+                    node.mqttclient.publish(msg.topic,JSON.stringify(msg.payload),{ qos: msg.qos, retain: msg.retain },(error) => {
+                        if (error) {
+                            node.error(error)
+                            }
+                        });
+                        msg=node.mqttstack.shift();
+                    }
+                });
+            }
+    
+            function sendMqtt(){
+
+                if (node.mqttclient==null || node.mqttclient.connected!=true){
+                    node.warn("MQTT not connected...");
+                    return;
+                }
+
+                node.log('MQTT dequeueing'); 
+
+                let msg=node.mqttstack.shift();
+                
+                while (msg!==undefined){
+                    let msgstr=JSON.stringify(msg.payload);
+                    if (msg.topic===undefined || msg.payload===undefined)
+                        return;
+ 
+                    node.mqttclient.publish(msg.topic.toString(),JSON.stringify(msg.payload),{ qos: msg.qos, retain: msg.retain },(error) => {
+                        if (error) {
+                            node.error(error)
+                        }
+                    });
+                    msg=node.mqttstack.shift();
+                }
+            };
+
+
+        mqttAdvertise();
+
         node.on('close', function() {
             clearInterval(node.evalInterval)
         })
@@ -297,5 +588,4 @@ module.exports = function(RED) {
     }
 
     RED.nodes.registerType('smart-scheduler', SmartScheduler)
-
 }
