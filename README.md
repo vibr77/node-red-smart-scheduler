@@ -9,7 +9,7 @@ The Smartscheduler is interface with Home assistant and use MQTT to advertise an
 
 WORK IN PROGRESS, please report any issues and I will try to fixe them
 
-<img src="https://github.com/vibr77/node-red-smart-scheduler/blob/main/doc/img/ss_visual_1.png" width=250>
+<img src="https://github.com/vibr77/node-red-smart-scheduler/blob/main/doc/img/ss_visual_1.png" width=450>
 
 ## Key features:
 
