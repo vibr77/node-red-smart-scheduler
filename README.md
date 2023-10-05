@@ -9,6 +9,8 @@ The Smartscheduler is interface with Home assistant and use MQTT to advertise an
 
 WORK IN PROGRESS, please report any issues and I will try to fixe them
 
+![SmartScheduler](https://github.com/vibr77/node-red-smart-scheduler/blob/main/doc/img/ss_visual_1.png)
+
 ## Key features:
 
 - Interface with Home Assistant (adversise, and update),
@@ -19,6 +21,14 @@ WORK IN PROGRESS, please report any issues and I will try to fixe them
 - different output modes (state-change, state-change+startup, every minute)
 - External manual trigger
 - Default setPoint
+
+
+## Details
+
+### Interface with Home Assistant
+
+The smart scheduler is doing advertising of the entities and should be discovered as new device automatically.
+The name of the device in Home Assistant is the name of the node in the setting.
 
 
 
