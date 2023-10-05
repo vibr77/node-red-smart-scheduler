@@ -1,7 +1,7 @@
 
 /*
 __   _____ ___ ___        Author: Vincent BESSON
- \ \ / /_ _| _ ) _ \      Release: 0.11
+ \ \ / /_ _| _ ) _ \      Release: 0.41
   \ V / | || _ \   /      Date: 20230930
    \_/ |___|___/_|_\      Description: Nodered Heating Scheduler
                 2023      Licence: Creative Commons
@@ -92,7 +92,7 @@ module.exports = function(RED) {
 
         this.dev={
             ids:[node.uniqueId],
-            name:node.uniqueId,
+            name:node.name,
             mdl:"Smart-Scheduler",
             mf:"VIBR",
             sw:"0.34",
@@ -275,7 +275,7 @@ module.exports = function(RED) {
                 node.status({
                     fill:  'blue',
                     shape: 'dot',
-                    text:(node.rules[matchingEvent.ruleIdx].setName+" "+r.spTemp+" °C "+period)
+                    text:(r.setName+" "+r.spTemp+" °C "+period)
                 });
 
                 node.activeSp=r.spTemp;

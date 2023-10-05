@@ -25,7 +25,7 @@
             uniqueId:{value:"SmartScheduler_1"}
         },
         inputs:1,
-        outputs:2, // First to SP, 1 for MQTT 
+        outputs:1,
         icon: "font-awesome/fa-calendar",
         label: function() {
             return this.name||"smart-scheduler";
@@ -113,9 +113,9 @@
 
                 colorPicker.on("color:change", colorChangeCallback);
                 
-                let now=new Date();
-                console.log(now.toISOString());
- 
+                let mm=moment();
+                let dt='2018-01-0'+mm.day()+" "+mm.format('HH:mm:ss');
+
                 var calendarEl = document.querySelector('#calendar');
                 var calendar = new FullCalendar.Calendar(calendarEl, {
                    
@@ -127,7 +127,7 @@
                     slotEventOverlap:false,
                     firstDay: 1,
                     nowIndicator:true,
-                    now:now.toISOString(),
+                    now:dt,
                     dayHeaderFormat:{ weekday: 'short' },
                     duration: '00:05:00',
                     snapDuration: '00:05:00',
