@@ -13,16 +13,45 @@
             rules:{value:[{setName:"Confort",setColor:"#CCCCCC",spTemp:"19"}],validate: function(rules, opt) {
                 return true;
             }},
-            events: {value:"[]"},
-            triggerMode:{value:"triggerMode.statechange.startup"},
+            
+            schedules:{value:"[]"},
+            activScheduleId:{value:""},
+            
+            triggerMode:{value:"triggerMode.statechange.startup",required: true},
             topic:{value:""},
-            defaultSp:{value:"5"},
+            defaultSp:{value:"5",required: true,validate:function(v) {
+                
+                if (isNaN(v)){
+                    console.log(here)
+                    return false;
+                }
+
+                if (v<1 || v> 35){
+                    //this.warn("defaultSp need to be >0 et <= 35")
+                    return false;
+                }
+                return true;
+            } },
             override:{value:"auto"},
-            overrideDuration:{value:"120"},
+            overrideDuration:{value:"120",validate:RED.validators.number() },
             overrideTs:{value:"5"},
-            overrideSp:{value:"0"},
-            settingChanged:{value:"0"},
-            uniqueId:{value:"SmartScheduler_1"}
+            overrideSp:{value:"0",required: true, validate:function(v) {
+                if (isNaN(v)){
+                    return false;
+                }
+
+                if (v<0 || v> 35){
+                    //this.warn("overrideSp need to be >0 et <= 35")
+                    return false;
+                }
+                return true;
+            }},
+            settingChanged:{value:"0",validate:function(v) {
+                return true;
+            }},
+            uniqueId:{value:"SmartScheduler_1",required: true,validate:function(v) {
+                return true;
+            }}
         },
         inputs:1,
         outputs:1,
@@ -65,36 +94,63 @@
                 return false;
             }
 
+            node.activeSched={};
+            node.maxSchedId=0;
+
+            node.isMaxSchedId=function(id){
+                if (id>node.maxSchedId){
+                    node.maxSchedId=id;
+                    return true
+                }
+                return false;
+            }
+            var configEventArray=function (ar){
+                
+                // 2 - We remove all events
+                if (node.calendar){
+                    var listEvent = node.calendar.getEvents();
+                    listEvent.forEach(event => { 
+                        event.remove()
+                    });
+                }
+                if (ar===undefined || ar==null)
+                    return;
+
+                ar.forEach(function(e) {
+
+                    let r=node.rules.find(({ruleIdx}) => ruleIdx==e.ruleIdx)
+                    if (r===undefined)
+                            return;
+                    
+                    var eventData = {
+                        id: e.id,
+                        title: r.setName,
+                        start: e.start,
+                        end: e.end,
+                        stick: true,
+                        backgroundColor: r.setColor,
+                        ruleIdx:e.ruleIdx
+                    };
+
+                    node.calendar.addEvent(eventData);
+                });
+
+                node.calendar.render();
+            }
+            
             var setup = function(node) {
 
                 $("#node-input-triggerMode").val(node.triggerMode ? node.triggerMode : 'triggerMode.statechange.startup'); 
                 $("#node-input-override").val(node.override ? node.override : 'auto');        
-                $("#node-input-overrideDuration").val(node.overrideDuration ? node.overrideDuration : "120");
+                //$("#node-input-overrideDuration").val(node.overrideDuration ? node.overrideDuration : "120");
 
-                node.configuredEvents = [];
-            
-                JSON.parse(node.events).forEach(function(e) {
-              
-                    eventData = {
-                        id: node.nextId(),
-                        start: e.start,
-                        end: e.end,
-                        s_dow:e.s_dow,
-                        s_mod:e.s_mod,
-                        e_dow:e.e_dow,
-                        e_mod:e.e_mod,
-                        stick: true,
-                        ruleIdx: parseInt(e.ruleIdx)
-                    };
+                // Schedules[]={name:"blahblah",idx=1,events}
 
-                    /*if(eventData.start.isAfter(eventData.end)) {
-                        // start is a sunday (which is moved from date 0 to 7)
-                        eventData.end.add(7, 'days');
-                    }*/
-                  
-                    node.configuredEvents.push(eventData);
-                });
-                
+                console.log(node.rules);
+                node.configuredSchedules=[];
+                if (node.schedules===undefined){
+                    node.schedules="[]";
+                }
 
                 var colorPicker = new iro.ColorPicker("#colorPicker", {
                     width: 250,
@@ -107,8 +163,7 @@
                    $("#cc_btn_"+ctrl_i).css('background-color',color.hexString);
                    
                   // $("#sched_btn_"+ctrl_i).css('background-color',color.hexString);
-                  node.rules.find(({ruleIdx}) => ruleIdx===ctrl_i).setColor=color.hexString;
-                  
+                  node.rules.find(({ruleIdx}) => ruleIdx==ctrl_i).setColor=color.hexString;
                 }
 
                 colorPicker.on("color:change", colorChangeCallback);
@@ -117,7 +172,7 @@
                 let dt='2018-01-0'+mm.day()+" "+mm.format('HH:mm:ss');
 
                 var calendarEl = document.querySelector('#calendar');
-                var calendar = new FullCalendar.Calendar(calendarEl, {
+                node.calendar = new FullCalendar.Calendar(calendarEl, {
                    
                     initialView: 'timeGridWeek',
                     initialDate:'2018-01-01 00:00:00',
@@ -155,14 +210,19 @@
                     },
                     eventClick: function(info) {
                         
-                        node.configuredEvents = node.configuredEvents.filter(function(e) {
+                        if (node.activeSched===undefined)
+                            return;
+
+                        node.activeSched.events = node.activeSched.events.filter(function(e) {
                             return info.event.id != e.id;
                         });
-                        console.log(node.configuredEvents );
                         info.event.remove();
                     },
                     select: function(info) {
-                    
+                        
+                        if (node.activeSched===undefined)
+                            return;
+
                         end=info.endStr;
                         start=info.startStr;
 
@@ -193,13 +253,15 @@
                             ruleIdx:ctrl_i
                         };
 
-                        calendar.addEvent(eventData);
-
-                        node.configuredEvents.push(eventData);
+                        node.calendar.addEvent(eventData);
+                        node.activeSched.events.push(eventData);
                     },
                     eventResize: function(info) {
+
+                        if (node.activeSched===undefined)
+                            return;
                         
-                        node.configuredEvents.forEach(function(e) {
+                        node.activeSched.events.forEach(function(e) {
                           
                             if(info.event.id == e.id) {
                                 m_s = moment(info.event.startStr);
@@ -221,8 +283,11 @@
                         //if(!start.isSame(end, 'day'))
                         //    if(!start.add(1, 'day').startOf('day').isSame(end, 'minute'))
                         //        revertFunc();
+                        
+                        if (node.activeSched===undefined)
+                            return;
 
-                        node.configuredEvents.forEach(function(e) {
+                        node.activeSched.events.forEach(function(e) {
                             if(info.event.id == e.id) {
                                 m_s = moment(info.event.startStr);
                                 m_e = moment(info.event.endStr);
@@ -235,35 +300,68 @@
                                 e.end=info.event.endStr;
                                 e.start=info.event.startStr;
                             }
-                        });
-                        
-                    }            
-        
+                        });  
+                    }
                 });
-                
-                node.configuredEvents.forEach(function(e) {
 
-                    let r=node.rules.find(({ruleIdx}) => ruleIdx==e.ruleIdx)
-                    if (r===undefined)
-                            return;
 
-                    m_s = moment(e.start);
-                    m_e = moment(e.end);
+                node.configuredSchedules=JSON.parse(node.schedules);
+               
+                node.configuredSchedules.forEach(function(e){
+                    node.isMaxSchedId(e.idx);
+                    $('#node-input-activeSchedule').append($('<option>', {value:e.idx, text:e.name}));
+                    if (e.idx==node.activScheduleId){
+                       
+                        $("#node-input-activeSchedule").val(node.activScheduleId).change();
+                        node.activeSched=e;
+                        $("#node-input-scheduleName").val(node.activeSched.name);
 
-                    var eventData = {
-                        id: e.id,
-                        title: r.setName,
-                        start: e.start,
-                        end: e.end,
-                        stick: true,
-                        backgroundColor: r.setColor,
-                        ruleIdx:e.ruleIdx
-                    };
+                        configEventArray(e.events);
+                    }    
+                })
+
+                $("#node-input-addSchedule").on("click", function(e) { // Add a new schedule to the list
+                    node.maxSchedId++;
+                    $('#node-input-activeSchedule').append($('<option>', {value:node.maxSchedId, text:'New schedule '+node.maxSchedId}));
+                    node.configuredSchedules.push({name:'New schedule '+node.maxSchedId,idx:node.maxSchedId,events:[]})
+                    $("#node-input-activeSchedule").val(node.maxSchedId).change();
+                });
+
+                $("#node-input-deleteSchedule").on("click", function(event) { // Delete current schedule
                     
-                    calendar.addEvent(eventData);
+                    let id=$("#node-input-activeSchedule").find(":selected").val();
+                    $("#node-input-activeSchedule").find('[value="'+id+'"]').remove();
+
+                    node.configuredSchedules = node.configuredSchedules.filter(function(e) {
+                        return id != e.idx;
+                    });
+
+                    id=$("#node-input-activeSchedule").find(":selected").val();
+                    node.activeSched=node.configuredSchedules.find((sched)=>parseInt(sched.idx)==parseInt(id));
+                    if (node.activeSched===undefined){
+                        $("#node-input-scheduleName").val("");
+                        $("#node-input-scheduleName").prop('disabled', true);
+                        configEventArray(null);
+                        return;
+                    }
+                    configEventArray(node.activeSched.events);
+                    $("#node-input-scheduleName").val(node.activeSched.name);
+                });
+               
+                $('#node-input-activeSchedule').on('change', function() {
+                    node.activScheduleId=this.value;
+                    node.activeSched=node.configuredSchedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId));
+                    $("#node-input-scheduleName").prop('disabled', false);
+
+                    configEventArray(node.activeSched.events);
+                    $("#node-input-scheduleName").val(node.activeSched.name);
                 });
 
-                calendar.render();
+                $("#node-input-scheduleName").keyup(function (event) {
+                    node.activeSched.name=$('#node-input-scheduleName').val();
+                    console.log(node.configuredSchedules);
+                    $('#node-input-activeSchedule').find(":selected").text(node.activeSched.name);
+                });
             }
           
             $('#node-input-rule-container').css('min-height','150px').css('min-width','400px').editableList({
@@ -341,15 +439,13 @@
                     });
 
                     $('#node-input-temp-sp_'+rule.ruleIdx).keyup(function (event) {
-                        
                         ctrl_i=$(event.target).attr('idx');
-                        node.rules.find(({ruleIdx}) => ruleIdx===ctrl_i).spTemp=$('#node-input-temp-sp_'+ctrl_i).val();
-                        
+                        node.rules.find(({ruleIdx}) => ruleIdx===ctrl_i).spTemp=$('#node-input-temp-sp_'+ctrl_i).val();  
                     });
                 },
                 removeItem:function(data) {
                     console.log("remove");
-                    $("#sched_btn_"+i).remove();
+                    $("#sched_btn_"+data).remove(); // -<<<<<<<-----------Strange to be reviewed
                     console.log(data);
                 },
                 resizeItem: function(row,index) {
@@ -357,14 +453,12 @@
                     console.log("Resize the row for item:", originalData)
                 },
                 resize: function() {
-                    console.log("I have changed in size")
-                    var length =$('#node-input-rule-container').editableList('length');
-                    console.log("length:"+length);
-                    node.outputs=length;
+                    console.log("the size has changed");
                 }
             });
             
-            if (!this.rules) {
+
+            if (!node.rules) {
 
                 var rule = {
                     setName:"Confort",
@@ -373,13 +467,13 @@
                     ruleIdx:0
                 };
 
-                this.rules = [rule];
+                node.rules = [rule];
             }
             
-            $("#node-input-name").val(this.name);
-            $("#node-input-topic").val(this.topic);
-            $("#node-input-default-sp").val(this.defaultSp);
-            $("#node-input-uniqueId").val(this.uniqueId);
+            //$("#node-input-name").val(this.name);
+            //$("#node-input-topic").val(this.topic);
+            //$("#node-input-ddefaultSp").val(this.defaultSp);
+            //$("#node-input-uniqueId").val(this.uniqueId);
             
             $("#node-input-default-sp").keyup(function (event) {
                 this.defaultSp=$('#node-input-default-sp').val();
@@ -452,15 +546,41 @@
                              // use to reset;
 
         node.settingChanged="1"; // Refresh runtime value;
-        
+
+        node.activScheduleId=$("#node-input-activeSchedule").find(":selected").val();
+        console.log("here:"+node.activScheduleId);
         node.triggerMode=$("#node-input-triggerMode").find(":selected").val();
-        node.overrideDuration=$("#node-input-overrideDuration").val();
+
+        //node.overrideDuration=$("#node-input-overrideDuration").val();
         node.override=$("#node-input-override").find(":selected").val();
-        node.defaultSp=$("#node-input-default-sp").val();
+        //node.defaultSp=$("#node-input-default-sp").val();
         
         // Transform and store data
-        //node.configuredEvents=[];    
-        var events = node.configuredEvents.map(function(e) {
+        //node.configuredEvents=[];
+        
+        // clean up the table
+        
+        node.configuredSchedules.forEach(function(e) {
+            let ev=e.events.map(function(ee) {
+                return {
+                    id:ee.id,
+                    start: ee.start,
+                    end: ee.end,
+                    ruleIdx: parseInt(ee.ruleIdx),
+                    s_dow:ee.s_dow,
+                    s_mod:ee.s_mod,
+                    e_dow:ee.e_dow,
+                    e_mod:ee.e_mod
+                };
+            });
+            e.events=ev;
+        });
+
+        node.schedules= JSON.stringify(node.configuredSchedules);
+        console.log(node.configuredSchedules);
+        console.log(node.schedules);
+
+        /*var events = node.configuredEvents.map(function(e) {
             return {
                 id:e.id,
                 start: e.start,
@@ -471,10 +591,9 @@
                 e_dow:e.e_dow,
                 e_mod:e.e_mod
             };
-        });
+        });*/
 
-      node.events = JSON.stringify(events);
-        console.log(events);
+      //node.events = JSON.stringify(events);
 
       delete window.calendar;
 
@@ -493,37 +612,57 @@
     </style>
     <div class="form-row">
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
+        <input type="text" title="node & home asssitant device name" id="node-input-name" placeholder="Name">
        
     </div>
     <div class="form-row">
         <label for="node-input-topic"><i class="fa fa-tasks"></i> Topic</label>
-        <input type="text" id="node-input-topic" placeholder="Topic"></input>
+        <input type="text" title="msg output topic"  id="node-input-topic" placeholder="Topic"></input>
     </div>
     <div class="form-row">
         <label for="node-input-topic"><i class="fa fa-tasks"></i> UniqueId</label>
-        <input type="text" id="node-input-uniqueId" placeholder="uniqueId"></input>
+        <input type="text" title="Unique id used for home assistant, has to be unique" id="node-input-uniqueId" placeholder="uniqueId"></input>
     </div>
-   
+    <div class="form-row">
+        <label for="node-input-defaultSp"><i class="fa fa-tasks"></i> Default set point</label>
+        <input type="text" title="set point temperature when no schedule event found" id="node-input-defaultSp" style="width:60px !important; text-align: right;" placeholder="temp"></input>
+        <label for="node-input-defaultSp"> °C</label>
+        
+    </div>
+    
+
+    <div class="form-row">
+        <label for="node-input-mqttSettings"><i class="fa fa-globe"></i> Mqtt</label>
+        <input type="text" id="node-input-mqttSettings"></input>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-activeSchedule"><i class="fa fa-calendar"></i> Schedule</label>
+        <select id="node-input-activeSchedule"></select>
+        <a id="node-input-addSchedule" title="Add new schedule" class="red-ui-button"><i class="fa fa-calendar-plus-o fa-2"></i></a>
+    </div>
     <div class="form-row" style="margin-bottom:0;">
-        <label><i class="fa fa-list"></i> <span data-i18n="change.label.rules">rules</span></label>
+        <label><i class="fa fa-list"></i> <span data-i18n="change.label.rules"> Rules</span></label>
         <dialog id="ColorPickerDialog"  style="width: 300px; height:320px" closed>
             <div id="colorPicker"></div>
             <form method="dialog">
-              <button>OK</button>
+                
+              <div align="center" style="margin-top:5px;"><button>OK</button></div>
             </form>
         </dialog>
     </div>
     <div class="form-row node-input-rule-container-row">
         <ol id="node-input-rule-container"></ol>
     </div>
+
     <div class="form-row">      
-        <p style="padding-top: 10px"><i class="fa fa-info-circle"></i> Schedule</p>
-      </div>  
+        <label><i class="fa fa-calendar"></i><span data-i18n=""> Active</span></label>
+        <input type="text" title="Active schedule name" style="width:250px;" id="node-input-scheduleName" placeholder="name"></input>
+        <a id="node-input-deleteSchedule" title="Delete current schedule" class="red-ui-button"><i class="fa fa-trash-o  fa-2"></i></a>
+    </div>  
+    
     <div class="form-row">
-        <span id="sched_btn_grp" class="button-group">
-            
-        </span>
+        <span id="sched_btn_grp" class="button-group"></span>
         <link rel='stylesheet' href='resources/node-red-contrib-vib-smart-scheduler/fullcalendar.min.css' />
         <style type="text/css">
           .wc-business-hours {
@@ -532,7 +671,7 @@
         </style>
         <div id="calendar" style="width: 550px; border: 1px solid grey"></div>
         <div class="form-row">      
-          <p style="padding-top: 10px"><i class="fa fa-info-circle"></i> Note: Marked schedule = "On Payload"</p>
+          <p style="padding-top: 10px"></p>
         </div>    
         <div class="form-row">
             <label for="node-input-triggerMode"><i class="fa fa-play"></i> Trigger mode </label>
@@ -541,32 +680,32 @@
               <option value="triggerMode.statechange.startup">when state changes + startup</option>
               <option value="triggerMode.minutely">every minute</option>
             </select>
-          </div>
-          <div class="form-row">
-            <label for="node-input-override"><i class="fa fa-play"></i> Override </label>
+        </div>
+        <div class="form-row">      
+            <p style="padding-top: 10px"><i class="fa fa-play"></i> Override</p> 
+        </div>
+        <div class="form-row">
+            <label for="node-input-override"> Mode </label>
             <select id="node-input-override">
-              <option value="auto">auto</option>
-              <option value="manual">manual</option>
-              <option value="off">off</option>
+                <option value="auto">auto</option>
+                <option value="manual">manual</option>
+                <option value="off">off</option>
             </select>
-          </div>
+        </div>
           <div class="form-row">
-            <label for="node-input-overrideDuration"><i class="fa fa-play"></i> Override Duration</label>
-            <input type="text" id="node-input-overrideDuration" style="width:60px !important; text-align: right;" placeholder="min"></input>
+            <label for="node-input-overrideDuration"> Duration</label>
+            <input type="text" title="override duration period" id="node-input-overrideDuration" style="width:60px !important; text-align: right;" placeholder="min"></input>
             <label for="node-input-overrideDuration-2"> min</label>
           </div>
           <div class="form-row">
-            <label for="node-input-default-sp"><i class="fa fa-tasks"></i> SP default</label>
-            <input type="text" id="node-input-default-sp" style="width:60px !important; text-align: right;" placeholder="temp"></input>
-            <label for="node-input-default-sp-2"> °C</label>
-        </div>
-        <div class="form-row">
-            <label for="node-input-mqttSettings"><i class="fa fa-globe"></i> Globals</label>
-            <input type="text" id="node-input-mqttSettings"></input>
+            <label for="node-input-overrideSp"> Set point</label>
+            <input type="text" title="override temperature set point" id="node-input-overrideSp" style="width:60px !important; text-align: right;" placeholder="temperature"></input>
+            <label for="node-input-overrideDuration-2"> °C</label>
           </div>
+        
       </div>
     
-    <div class="form-tips"><b>Tip:</b> This is here to help.</div>
+    
 </script>
 
 <script type="text/html" data-help-name="smart-scheduler">

@@ -1,0 +1,240 @@
+<script type="text/javascript">
+    
+    var eColor="#558006";
+    var ctrl_i=0;
+
+    RED.nodes.registerType('smart-scheduler-rules', {
+        category: 'config',
+        defaults: {
+            name: {value: 'my settings', required: true},
+            rules: {value:[{setName:"Confort",setColor:"#CCCCCC",spTemp:"19"}],validate: function(rules, opt) {
+                return true;
+            }}
+        },
+        label: function () {
+            return this.name
+        },
+
+        oneditprepare: function () {
+            var node = this
+
+            node.maxRuleId=0;
+            node.isMaxRuleId=function(id){
+                if (id>node.maxRuleId){
+                    node.maxRuleId=id;
+                    return true
+                }
+                return false;
+            }
+
+            console.log(node.rules);
+
+            var setup = function(node) {
+
+                console.log(node.rules);
+
+                var colorPicker = new iro.ColorPicker("#colorPicker", {
+                    width: 250,
+                    color: "#f00"
+                });
+
+                function colorChangeCallback(color) {
+                    console.log("ctrl colorChangeCallback:"+ctrl_i);
+                    $("#node-input-temp-color_"+ctrl_i).val(color.hexString);
+                    $("#cc_btn_"+ctrl_i).css('background-color',color.hexString);
+                    
+                    // $("#sched_btn_"+ctrl_i).css('background-color',color.hexString);
+                    node.rules.find(({ruleIdx}) => ruleIdx==ctrl_i).setColor=color.hexString;
+                }
+
+               /* $("#btnDialog").on("click", function(event) {
+                    console.log("here");
+                    //$("#ColorPickerDialog").removeAttr("open");
+                    //$("#ColorPickerDialog").attr("closed");
+                });*/
+
+                colorPicker.on("color:change", colorChangeCallback);
+
+                $('#node-config-input-rule-container').css('min-height','150px').css('min-width','400px').editableList({
+                    removable: true,
+                    sortable: true,
+                    addItem: function(container,i,opt) {
+                        var rule = opt;
+                        console.log(rule);
+                        if ( typeof opt == 'undefined' || Object.keys(opt).length==0){
+                            node.maxRuleId++;
+                            rule = {setName:"Confort",setColor:"#CCCCCC",spTemp:"19",ruleIdx:node.maxRuleId};
+                            node.rules.push(rule);
+
+                        }else{
+                            if (rule.ruleIdx===undefined){
+                                node.maxRuleId++;
+                                rule.ruleIdx=node.maxRuleId;
+                            }
+                            node.isMaxRuleId(parseInt(rule.ruleIdx));
+                        }
+
+                        $(container).data('data',i);
+                        let fragment = document.createDocumentFragment();
+                        var row1 = $('<div/>',{style:"display:flex; align-items: baseline"}).appendTo(fragment);
+
+                        $('<label style="width:20px !important;display: inline-block; text-align: right;" ><span><i class="fa fa-sign-out"></i></span></label>').appendTo(row1);
+                        $('<label style="width:20px !important;" ><span><b>'+(i+1)+'</b></span></label>').appendTo(row1);
+                    
+                        $('<input type="text" id="node-input-set-name_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="node-input-set-name" placeholder="Set name" style="width:140px" >').appendTo(row1);
+                        $('<label style="width:20px !important; display: inline-block; text-align: right; margin-right:5px;" ><span><i class="fa fa-thermometer-empty"></i></span></label>').appendTo(row1);
+
+                        $('<input type="text" id="node-input-temp-sp_'+rule.ruleIdx+'" class="node-input-sp" placeholder="SetPoint" style="width:60px !important; text-align: right;">').appendTo(row1);
+                        $('<label style="width:20px !important;display: inline-block; text-align: right; margin-right:15px;" >°C</label>').appendTo(row1);
+                    
+                        
+                        $('<input type="text" id="node-input-temp-color_'+rule.ruleIdx+'" class="node-input-temp-color" size="7" placeholder="color" style="width:70px !important; ">&nbsp;').appendTo(row1);
+                        $('<label style="width:20px !important; display: inline-block; text-align: right; margin-right:5px;margin-left:5px;"><span><i class="fa fa-paint-brush"></i></span></label>').appendTo(row1);
+                        
+                        $('<button type="button" id="cc_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="cc_btn red-ui-button red-ui-button"  style="margin-left: 5px !important; height: 32px !important;">&nbsp;&nbsp;&nbsp;</button>').appendTo(row1);
+                        
+                        //$('<button type="button" id="sched_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="red-ui-button toggle my-button-group"></button>').appendTo(sched_btn_grp);
+                        
+                        $(".my-button-group").on("click", function(event) {
+                            $(".my-button-group").removeClass("selected");
+                            $(this).addClass("selected");
+                            ctrl_i=$(event.target).attr('idx');
+                        });
+                    
+                        container[0].appendChild(fragment);
+
+                        $('#node-input-set-name_'+rule.ruleIdx).val(rule.setName);
+                        $('#node-input-temp-color_'+rule.ruleIdx).val(rule.setColor);
+                    
+                        $("#cc_btn_"+rule.ruleIdx).css('background-color',rule.setColor);
+                        $('#node-input-temp-sp_'+rule.ruleIdx).val(rule.spTemp);
+                        //$("#sched_btn_"+rule.ruleIdx).html(rule.setName);
+
+                        const favDialog = document.getElementById("ColorPickerDialog");
+                        
+                        $("#cc_btn_"+rule.ruleIdx).on('click',function(event) {
+                            favDialog.showModal();
+                          
+                            ctrl_i=$(event.target).attr('idx')
+                        
+                        });  
+
+                        $('#node-input-set-name_'+rule.ruleIdx).keyup(function (event) {
+                            
+                            ctrl_i=$(event.target).attr('idx');
+                        
+                            //$("#sched_btn_"+ctrl_i).html($('#node-input-set-name_'+ctrl_i).val());
+        
+                            let r=node.rules.find(({ruleIdx}) => ruleIdx===ctrl_i);
+                            r.setName=$('#node-input-set-name_'+ctrl_i).val();
+                            
+                        });
+
+                        $('#node-input-temp-sp_'+rule.ruleIdx).keyup(function (event) {
+                            ctrl_i=$(event.target).attr('idx');
+                            node.rules.find(({ruleIdx}) => ruleIdx===ctrl_i).spTemp=$('#node-input-temp-sp_'+ctrl_i).val();  
+                        });
+                    },
+                    removeItem:function(data) {
+                        console.log("remove");
+                        //$("#sched_btn_"+i).remove(); // -<<<<<<<-----------Strange to be reviewed
+                        console.log(data);
+                    },
+                    resizeItem: function(row,index) {
+                        var originalData = $(row).data('data');
+                        console.log("Resize the row for item:", originalData)
+                    },
+                    resize: function() {
+                        
+                    }
+                });
+
+                if (!node.rules) {
+
+                    var rule = {
+                        setName:"Confort",
+                        setColor:"#CCCCCC",
+                        spTemp:"19",
+                        ruleIdx:0
+                    };
+
+                    this.rules = [rule];
+                }
+
+                node.rules.forEach((rule,index,ar) => {
+                    $("#node-config-input-rule-container").editableList('addItem',rule);
+                });
+
+            }
+
+
+            $.getScript('https://cdn.jsdelivr.net/npm/@jaames/iro@5')
+                .done(function(data, textStatus, jqxhr) { 
+                    setup(node);   
+                })
+                .fail(function(jqxhr, settings, exception ){
+                    console.log("cdn.jsdelivr.net/npm/@jaames/iro@5");
+                    console.log(exception);
+                    console.log(exception.stack);
+                });
+        },
+        oneditsave: function () {
+            var node = this
+
+            var rules = $("#node-config-input-rule-container").editableList('items');
+            
+            node.rules= [];
+
+            rules.each(function(i){
+                
+                var rule = $(this);
+                var type = rule.find(".node-input-rule-type").val();
+                var r = {
+                    setName:rule.find(".node-input-set-name").val(),
+                    setColor:rule.find(".node-input-temp-color").val(),
+                    spTemp:rule.find(".node-input-sp").val(),
+                    ruleIdx:rule.find(".node-input-set-name").attr("idx")
+                }
+            
+                node.rules.push(r);
+            });
+            console.log(node.rules);
+            
+        },
+        oneditcancel: function () {
+            var node = this
+        
+        }
+    })
+  </script>
+  
+  <script type="text/html" data-template-name="smart-scheduler-rules">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="icon-bookmark"></i> Name</label>
+        <input type="text" id="node-config-input-name">
+      </div>
+    <div class="form-row" style="margin-bottom:0;">
+        <dialog id="ColorPickerDialog"  style="width: 300px; height:320px" closed>
+            <div id="colorPicker"></div>
+            <form method="dialog">
+              <div align="center"> <button id="btnDialog">OK</button></div>
+            </form>
+        </dialog>
+    </div>
+    <div class="form-row">
+        <label for="node-input-rules"><i class="fa fa-globe"></i> Rules</label>
+      </div>
+    </div>
+    <div class="form-row node-config-input-rule-container-row">
+        <ol id="node-config-input-rule-container"></ol>
+    </div>
+  </script>
+  
+  <script type="text/x-red" data-help-name="smart-scheduler-rules">
+    <h3>Settings</h3>
+    <dl class="message-properties">
+      <dt>Latitude & Longitude<span class="property-type">number</span></dt>
+      <dd>If the browser support geolocation the Latitude and Longitude will be updated to the current position when created. This position might not be accurate, so please verify that it is as good as you want it.</dd>
+    </dl>
+  </script>
+  

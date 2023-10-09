@@ -1,7 +1,7 @@
 
 /*
 __   _____ ___ ___        Author: Vincent BESSON
- \ \ / /_ _| _ ) _ \      Release: 0.41
+ \ \ / /_ _| _ ) _ \      Release: 0.44
   \ V / | || _ \   /      Date: 20230930
    \_/ |___|___/_|_\      Description: Nodered Heating Scheduler
                 2023      Licence: Creative Commons
@@ -13,6 +13,8 @@ TODO:
 -----
 
 + now correct date in calendar
++ Put Rules in config setting
++ When changing select param can not published
 
 */
 
@@ -29,13 +31,19 @@ module.exports = function(RED) {
     var SmartScheduler = function(n) {
         RED.nodes.createNode(this, n)
        
-        this.events = JSON.parse(n.events)
+        //this.events = JSON.parse(n.events)
         this.topic = n.topic
-        this.rules = n.rules
+        //this.rules = n.rules
         this.defaultSp=n.defaultSp
         this.name=n.name ? n.name : "smartscheduler";
         this.triggerMode = n.triggerMode ? n.triggerMode : 'trigger.statechange.startup'
+        this.schedules = n.schedules ? n.schedules : "[]";
         
+        
+        this.schedules=JSON.parse(n.schedules);
+        this.activScheduleId=n.activScheduleId;
+
+
         this.override = n.override ? n.override : 'auto'
         this.overrideTs= n.overrideTs ? n.overrideTs : '0'
         this.overrideDuration=n.overrideDuration ? n.overrideDuration :"120"
@@ -58,7 +66,7 @@ module.exports = function(RED) {
         var node = this;
 
         this.mqttSettings = RED.nodes.getNode(n.mqttSettings);
-        
+        this.rules = RED.nodes.getNode(n.rules);
 
         if ( this.mqttSettings?.mqttHost);
             node.log(this.mqttSettings?.mqttHost);
@@ -89,6 +97,9 @@ module.exports = function(RED) {
         this.adv_current_event_end_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/current_event_end/config";
         this.state_current_event_end_topic=this.mqttPrefix+"/"+node.uniqueId+"/current_event_end/state";
 
+        this.adv_schedule_list_topic=this.mqttPrefix+"/select/"+node.uniqueId+"/schedule_list/config";
+        this.state_schedule_list_topic=this.mqttPrefix+"/"+node.uniqueId+"/schedule_list/state";
+        this.set_schedule_list_topic=this.mqttPrefix+"/"+node.uniqueId+"/schedule_list/set";
 
         this.dev={
             ids:[node.uniqueId],
@@ -350,9 +361,37 @@ module.exports = function(RED) {
                 value_template:"{{value_json.value}}",
                 dev:node.dev
             }
-            
-            let mqttmsg={topic:node.adv_mode_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
+
+
+            let arr=[];
+            if (node.schedules){
+                node.schedules.forEach(function(e){
+                    arr.push(e.name); 
+                });
+            }
+            msg.payload={
+                name:"Schedule",
+                uniq_id:node.uniqueId+"SCHED",
+                icon:"mdi:calendar-text-outline",
+                qos:0,
+                retain:true,
+                entity_category: "config",
+                state_topic:node.state_schedule_list_topic,
+                command_topic:node.set_schedule_list_topic,
+                command_template:"{{value_json.value}}",
+                options:arr,
+                value_template:"{{value_json.value}}",
+                dev:node.dev
+            }
+
+            let mqttmsg={topic:node.adv_schedule_list_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
             node.mqttstack.push(mqttmsg);
+
+            
+            msg.payload=node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId)).name;
+            mqttmsg={topic:node.state_schedule_list_topic,payload:msg.payload,qos:0,retain:false};
+            node.mqttstack.push(mqttmsg);
+            
 
             msg.payload={
                 name:"Current Setpoint",
@@ -458,7 +497,7 @@ module.exports = function(RED) {
         node.on('input', function(msg) {
             msg.payload = msg.payload.toString() // Make sure we have a string.
             
-            if (msg.payload.match(/^(1|on|0|off|auto|override|trigger)$/i)) {
+            if (msg.payload.match(/^(1|on|0|off|auto|override|trigger|schedule)$/i)) {
                 
                 if (msg.payload == '1' || msg.payload == 'trigger' || msg.payload == 'on'){
                     node.manualTrigger = true;
@@ -468,6 +507,32 @@ module.exports = function(RED) {
                     node.override="auto";
                     var now = new Date();
                     node.overrideTs=now.toISOString();
+                }
+
+                if (msg.payload=="schedule"){
+
+                    if (msg.id===undefined){
+                        node.warn('received schedule missing or invalid msg.id number');
+                        return;
+                    }
+
+                    let ev=node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(msg.id)).events;
+                    
+                    if (ev===undefined){
+                        node.warn('received schedule id not found');
+                        return;
+                    }
+
+                    node.events=ev;                     // <------------------ TODO Change input by name and not by id
+                    node.activScheduleId=msg.id;
+                    node.log("here");
+
+                    msg.payload={value:node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId)).name};
+                    //node.log(msg.payload);
+                    let mqttmsg={topic:node.state_schedule_list_topic,payload:msg.payload,qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    sendMqtt();
                 }
 
                 if (msg.payload=="off" || msg.payload == '0'){
@@ -499,6 +564,9 @@ module.exports = function(RED) {
                 evaluate()
             } else node.warn('Failed to interpret incoming msg.payload. Ignoring it!')
         })
+
+        if (node.activScheduleId)
+            node.events=node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId)).events;
 
         // re-evaluate every minute
         node.evalInterval = setInterval(evaluate, 60000)
