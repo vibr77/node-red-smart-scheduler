@@ -63,10 +63,11 @@ module.exports = function(RED) {
         this.noout=false;
         this.mqttclient=null;
         this.mqttstack=[];
+        
         var node = this;
 
         this.mqttSettings = RED.nodes.getNode(n.mqttSettings);
-        this.rules = RED.nodes.getNode(n.rules);
+       
 
         if ( this.mqttSettings?.mqttHost);
             node.log(this.mqttSettings?.mqttHost);
@@ -614,12 +615,13 @@ module.exports = function(RED) {
                     node.mqttclient.publish(msg.topic,JSON.stringify(msg.payload),{ qos: msg.qos, retain: msg.retain },(error) => {
                         if (error) {
                             node.error(error)
-                            }
-                        });
-                        msg=node.mqttstack.shift();
-                    }
-                });
-            }
+                        }
+                    });
+                    
+                    msg=node.mqttstack.shift();
+                }
+            });
+        }
     
             function sendMqtt(){
 
