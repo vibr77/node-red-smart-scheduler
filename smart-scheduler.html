@@ -51,7 +51,8 @@
             }},
             uniqueId:{value:"SmartScheduler_1",required: true,validate:function(v) {
                 return true;
-            }}
+            }},
+            debugInfo:{value:false}
         },
         inputs:1,
         outputs:1,
@@ -78,13 +79,7 @@
                 return m;
             };
 
-            node.nextId = (function() {
-                var id = 0;
-                return function() {
-                return id++;
-                };
-            })();
-
+           
             node.maxRuleId=0;
             node.isMaxRuleId=function(id){
                 if (id>node.maxRuleId){
@@ -95,8 +90,17 @@
             }
 
             node.activeSched={};
-            node.maxSchedId=0;
+            
+            node.maxEventId=0;
+            node.isMaxEventId=function(id){
+                if (id>node.maxEventId){
+                    node.maxEventId=id;
+                    return true
+                }
+                return false;
+            }
 
+            node.maxSchedId=0;
             node.isMaxSchedId=function(id){
                 if (id>node.maxSchedId){
                     node.maxSchedId=id;
@@ -107,6 +111,8 @@
             var configEventArray=function (ar){
                 
                 // 2 - We remove all events
+                node.maxEventId=0;
+
                 if (node.calendar){
                     var listEvent = node.calendar.getEvents();
                     listEvent.forEach(event => { 
@@ -121,7 +127,7 @@
                     let r=node.rules.find(({ruleIdx}) => ruleIdx==e.ruleIdx)
                     if (r===undefined)
                             return;
-                    
+                    node.isMaxEventId(e.id);
                     var eventData = {
                         id: e.id,
                         title: r.setName,
@@ -138,15 +144,13 @@
                 node.calendar.render();
             }
             
+            
+
             var setup = function(node) {
 
                 $("#node-input-triggerMode").val(node.triggerMode ? node.triggerMode : 'triggerMode.statechange.startup'); 
                 $("#node-input-override").val(node.override ? node.override : 'auto');        
-                //$("#node-input-overrideDuration").val(node.overrideDuration ? node.overrideDuration : "120");
-
-                // Schedules[]={name:"blahblah",idx=1,events}
-
-                console.log(node.rules);
+                
                 node.configuredSchedules=[];
                 if (node.schedules===undefined){
                     node.schedules="[]";
@@ -161,9 +165,7 @@
                    console.log("ctrl colorChangeCallback:"+ctrl_i);
                    $("#node-input-temp-color_"+ctrl_i).val(color.hexString);
                    $("#cc_btn_"+ctrl_i).css('background-color',color.hexString);
-                   
-                  // $("#sched_btn_"+ctrl_i).css('background-color',color.hexString);
-                  node.rules.find(({ruleIdx}) => ruleIdx==ctrl_i).setColor=color.hexString;
+                   node.rules.find(({ruleIdx}) => ruleIdx==ctrl_i).setColor=color.hexString;
                 }
 
                 colorPicker.on("color:change", colorChangeCallback);
@@ -207,10 +209,16 @@
                         omitZeroMinute: false,
                         meridiem: false,
                         hour12: false
-                    },
+                    },/*
+                    eventDidMount: function(info) {
+                        $(info.el).tooltip({
+                            title: info.event.title,
+                        });
+                        
+                    },*/
                     eventClick: function(info) {
                         
-                        if (node.activeSched===undefined)
+                        if (node.activeSched===undefined || ctrl_i!=-1)
                             return;
 
                         node.activeSched.events = node.activeSched.events.filter(function(e) {
@@ -220,7 +228,7 @@
                     },
                     select: function(info) {
                         
-                        if (node.activeSched===undefined)
+                        if (node.activeSched===undefined || ctrl_i==-1)
                             return;
 
                         end=info.endStr;
@@ -239,8 +247,9 @@
                         if (r===undefined)
                             return;
 
+                        node.maxEventId++;
                         var eventData = {
-                            id: node.nextId(),
+                            id: node.maxEventId,
                             title: r.setName,
                             start: start,
                             end: end,
@@ -253,17 +262,22 @@
                             ruleIdx:ctrl_i
                         };
 
+                        //console.log("eventData select id:"+eventData.id);
+
                         node.calendar.addEvent(eventData);
                         node.activeSched.events.push(eventData);
                     },
                     eventResize: function(info) {
-
+                        let found=0;
                         if (node.activeSched===undefined)
                             return;
                         
                         node.activeSched.events.forEach(function(e) {
                           
                             if(info.event.id == e.id) {
+                                console.log("info.event.id:"+info.event.id+", e.id:"+e.id);
+
+                                found++;
                                 m_s = moment(info.event.startStr);
                                 m_e = moment(info.event.endStr);
                                 e.s_dow=m_s.day();
@@ -275,6 +289,7 @@
                                 e.end=info.event.endStr;
                                 e.start=info.event.startStr;
                             }
+                            console.log('found:'+found);
                         });
                          
                     },
@@ -404,11 +419,7 @@
                     
                     $('<button type="button" id="sched_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="red-ui-button toggle my-button-group"></button>').appendTo(sched_btn_grp);
                     
-                    $(".my-button-group").on("click", function(event) {
-                        $(".my-button-group").removeClass("selected");
-                        $(this).addClass("selected");
-                        ctrl_i=$(event.target).attr('idx');
-                    });
+                    
                 
                     container[0].appendChild(fragment);
 
@@ -446,7 +457,7 @@
                 removeItem:function(data) {
                     console.log("remove");
                     $("#sched_btn_"+data).remove(); // -<<<<<<<-----------Strange to be reviewed
-                    console.log(data);
+                    //console.log(data);
                 },
                 resizeItem: function(row,index) {
                     var originalData = $(row).data('data');
@@ -470,32 +481,19 @@
                 node.rules = [rule];
             }
             
-            //$("#node-input-name").val(this.name);
-            //$("#node-input-topic").val(this.topic);
-            //$("#node-input-ddefaultSp").val(this.defaultSp);
-            //$("#node-input-uniqueId").val(this.uniqueId);
-            
-            $("#node-input-default-sp").keyup(function (event) {
-                this.defaultSp=$('#node-input-default-sp').val();
-            });
-            
-            $("#node-input-topic").keyup(function (event) {
-                this.topic=$('#node-input-topic').val();
-            });
-
-            $("#node-input-name").keyup(function (event) {
-                this.name=$('#node-input-name').val();
-            });
-
-            $("#node-input-uniqueId").keyup(function (event) {
-                this.uniqueId=$('#node-uniqueId').val();
-            });
-
-
             this.rules.forEach((rule,index,ar) => {
                 $("#node-input-rule-container").editableList('addItem',rule);
             });
-
+            $('<button type="button" id="sched_btn_del" idx="-1" class="red-ui-button toggle my-button-group"><i idx="-1" class="fa fa-trash-o  fa-2"></i></button>').appendTo(sched_btn_grp);
+            
+            $(".my-button-group").on("click", function(event) {
+                        console.log("here");
+                        $(".my-button-group").removeClass("selected");
+                        $(this).addClass("selected");
+                        console.log(event.target);
+                        ctrl_i=$(event.target).attr('idx');
+                        console.log(ctrl_i);
+                    });
            
 
             $.getScript('resources/node-red-contrib-vib-smart-scheduler/moment.min.js')
@@ -538,7 +536,7 @@
            
             node.rules.push(r);
         });
-        
+        console.log(node.rules);
 
         node.outputs=1;
         node.inputs=1;
@@ -548,7 +546,7 @@
         node.settingChanged="1"; // Refresh runtime value;
 
         node.activScheduleId=$("#node-input-activeSchedule").find(":selected").val();
-        console.log("here:"+node.activScheduleId);
+        //console.log("here:"+node.activScheduleId);
         node.triggerMode=$("#node-input-triggerMode").find(":selected").val();
 
         //node.overrideDuration=$("#node-input-overrideDuration").val();
@@ -667,22 +665,24 @@
           .wc-business-hours {
             font-size: 1.0em;
           }
+
         </style>
         <div id="calendar" style="width: 550px; border: 1px solid grey"></div>
         <div class="form-row">      
           <p style="padding-top: 10px"></p>
-        </div>    
-        <div class="form-row">
-            <label for="node-input-triggerMode"><i class="fa fa-play"></i> Trigger mode </label>
-            <select id="node-input-triggerMode">
-              <option value="triggerMode.statechange">when state changes</option>
-              <option value="triggerMode.statechange.startup">when state changes + startup</option>
-              <option value="triggerMode.minutely">every minute</option>
-            </select>
         </div>
-        <div class="form-row">      
-            <p style="padding-top: 10px"><i class="fa fa-play"></i> Override</p> 
-        </div>
+    </div>  
+    <div class="form-row">
+        <label for="node-input-triggerMode"><i class="fa fa-play"></i> Trigger mode </label>
+        <select id="node-input-triggerMode">
+            <option value="triggerMode.statechange">when state changes</option>
+            <option value="triggerMode.statechange.startup">when state changes + startup</option>
+            <option value="triggerMode.minutely">every minute</option>
+        </select>
+    </div>
+    <div class="form-row">      
+        <p style="padding-top: 10px"><i class="fa fa-play"></i> Override</p> 
+    </div>
         <div class="form-row">
             <label for="node-input-override"> Mode </label>
             <select id="node-input-override">
@@ -701,8 +701,11 @@
             <input type="text" title="override temperature set point" id="node-input-overrideSp" style="width:60px !important; text-align: right;" placeholder="temperature"></input>
             <label for="node-input-overrideDuration-2"> °C</label>
           </div>
-        
-      </div>
+          <div class="form-row">
+            <label style="width:120px !important;" for="node-input-debugInfo"><i class="fa fa-tasks"></i> Debug info</label>
+            <input type="checkbox" title="send debug information to the console" id="node-input-debugInfo"  ></input>
+        </div>
+      
     
     
 </script>

@@ -12,8 +12,6 @@ ______________________
 TODO:
 -----
 
-+ now correct date in calendar
-+ Put Rules in config setting
 + When changing select param can not published
 
 */
@@ -31,35 +29,32 @@ module.exports = function(RED) {
     var SmartScheduler = function(n) {
         RED.nodes.createNode(this, n)
        
-        //this.events = JSON.parse(n.events)
         this.topic = n.topic
-        //this.rules = n.rules
-        this.defaultSp=n.defaultSp
+
+               
         this.name=n.name ? n.name : "smartscheduler";
         this.triggerMode = n.triggerMode ? n.triggerMode : 'trigger.statechange.startup'
         this.schedules = n.schedules ? n.schedules : "[]";
-        
-        
-        this.schedules=JSON.parse(n.schedules);
-        this.activScheduleId=n.activScheduleId;
+        this.schedules=JSON.parse(n.schedules);                                 // JSON of the node schedules and schedules.event
+    
+        this.activScheduleId=n.activScheduleId;                                 // ID of the active schedule
+        this.defaultSp=n.defaultSp ?  n.defaultSp : '5'                         // When no event, out put the default sp 
 
+        this.override = n.override ? n.override : 'auto'                        // Current execution mode
+        this.overrideTs= n.overrideTs ? n.overrideTs : '0'                      // Timestamp of override mode start 
+        this.overrideDuration=n.overrideDuration ? n.overrideDuration :"120"    // Duration of the override periode (set in setting)
+        this.overrideSp=n.overrideSp ? n.overrideSp : "5"                       // Override set point by default
+        
+        this.activeRuleIdx=0                                                    // Active Rule ID for the current event
+        this.prevRuleIdx=0                                                      // Previous active Rule ID
 
-        this.override = n.override ? n.override : 'auto'
-        this.overrideTs= n.overrideTs ? n.overrideTs : '0'
-        this.overrideDuration=n.overrideDuration ? n.overrideDuration :"120"
-        this.overrideSp=n.overrideSp ? n.overrideSp : "5"
-        
-        this.activeRuleIdx=0
-        this.prevRuleIdx=0
-
-        this.activeSp=0;
-        this.prevSp=0;
-        
-        this.defaultSp=n.defaultSp ? n.defaultSp : '5'
-        
-        this.firstEval = true
-        this.manualTrigger = false;
-        this.settingChanged=n.settingChanged ? n.settingChanged:"0";
+        this.activeSp=0;                                                        // Active SP
+        this.prevSp=0;                                                          // Previous SP
+         
+        this.firstEval = true                                                   // First iteration loop evaluation
+        this.manualTrigger = false;                                             // Manual trigger flag from the input
+    
+        this.debugInfo=n.debugInfo? n.debugInfo :false;                         // Flag to send message to the console
         this.noout=false;
         this.mqttclient=null;
         this.mqttstack=[];
@@ -111,22 +106,15 @@ module.exports = function(RED) {
             hw_version:"1.0"
         }
 
-        // END OF MQTT
-        //
+        function nlog(msg){
+            if (node.debug==true){
+                node.log(msg);
+            }
+        }
 
         function isEqual(a, b) {
             // simpler and more what we want compared to RED.utils.compareObjects()
             return JSON.stringify(a) === JSON.stringify(b)
-        }
-
-        function evaluateNodeProperty(propName, propValue, propType, node, msg) {
-            try {
-                return RED.util.evaluateNodeProperty(propValue, propType, node, msg)
-            } 
-            catch(err) {
-                node.warn('Failed to interpret ' + propName + '. Ignoring it!. Reason:' + err)
-                return msg.payload
-            }
         }
 
         function setState(matchingEvent) {
@@ -136,8 +124,8 @@ module.exports = function(RED) {
             let hasSpchanged=false;
 
             if (node.override=="manual"){
-                console.log("node.override==manual");
-
+                nlog("node.override==manual");
+                
                 let ovrM=moment(node.overrideTs).add(node.overrideDuration,"m")
                 let now = moment();
                 let diff=ovrM.diff(now,"m")+1;
@@ -244,7 +232,7 @@ module.exports = function(RED) {
                 });
             }else if (matchingEvent.ruleIdx>=0){
                 //var event=node.events[matchingEvent.eventId];
-                console.log("matchingEvent.eventId:"+matchingEvent.eventId)
+                nlog("matchingEvent.eventId:"+matchingEvent.eventId)
                 var event=node.events.find((item) => parseInt(item.id)==parseInt(matchingEvent.eventId));
                 
                 var m_s=moment(event.start);
@@ -316,16 +304,16 @@ module.exports = function(RED) {
 
             // Only send anything if the state have changed, on trigger and when configured to output on a minutely basis.
             
-            node.log("-->setState(matchingEvent) output:");
-            node.log("   node.activeRuleIdx:"+node.activeRuleIdx);
-            node.log("   node.prevRuleIdx:"+node.prevRuleIdx);
-            node.log("   node.activeSp:"+node.activeSp);
-            node.log("   node.prevSp:"+node.prevSp);
+            nlog("-->setState(matchingEvent) output:");
+            nlog("   node.activeRuleIdx:"+node.activeRuleIdx);
+            nlog("   node.prevRuleIdx:"+node.prevRuleIdx);
+            nlog("   node.activeSp:"+node.activeSp);
+            nlog("   node.prevSp:"+node.prevSp);
             
             if (node.noout==true)
-                node.log("   node.noout:true");
+                nlog("   node.noout:true");
             else 
-                node.log("   node.noout:false");
+                nlog("   node.noout:false");
 
             if (node.manualTrigger || 
                 node.triggerMode == 'triggerMode.minutely' || 
@@ -334,7 +322,7 @@ module.exports = function(RED) {
                                 
                 if (/*!node.firstEval &&*/ !node.noout){
                     node.send([msg,null]);
-                    node.log("   output msg:"+JSON.stringify(msg));
+                    nlog("   output msg:"+JSON.stringify(msg));
                     node.noout=false;
                 }else if (node.noout==true)
                     node.noout=false;
@@ -351,7 +339,6 @@ module.exports = function(RED) {
         function mqttAdvertise(){
             
             var msg={};
-        
             msg.payload={
                 name:"Mode",
                 uniq_id:node.uniqueId+"MODE",
@@ -363,13 +350,13 @@ module.exports = function(RED) {
                 dev:node.dev
             }
 
-
             let arr=[];
             if (node.schedules){
                 node.schedules.forEach(function(e){
                     arr.push(e.name); 
                 });
             }
+
             msg.payload={
                 name:"Schedule",
                 uniq_id:node.uniqueId+"SCHED",
@@ -393,7 +380,6 @@ module.exports = function(RED) {
             mqttmsg={topic:node.state_schedule_list_topic,payload:msg.payload,qos:0,retain:false};
             node.mqttstack.push(mqttmsg);
             
-
             msg.payload={
                 name:"Current Setpoint",
                 uniq_id:node.uniqueId+"SP",
@@ -482,13 +468,13 @@ module.exports = function(RED) {
                 var now = moment();
                 if (now> ovrM.add()){
                     node.override='auto';
-                    node.log("   exceed OverrideDuration");
-                    node.log("   override=manual->auto");
+                    nlog("   exceed OverrideDuration");
+                    nlog("   override=manual->auto");
                 }
             }
 
             var matchEvent = scheduler.matchSchedule(node)
-            console.log("MatchEvent="+matchEvent);
+            nlog("MatchEvent="+matchEvent);
             
             node.activeRuleIdx=parseInt(matchEvent.ruleIdx);
 
@@ -526,10 +512,10 @@ module.exports = function(RED) {
 
                     node.events=ev;                     // <------------------ TODO Change input by name and not by id
                     node.activScheduleId=msg.id;
-                    node.log("here");
+                    nlog("here");
 
                     msg.payload={value:node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId)).name};
-                    //node.log(msg.payload);
+                    
                     let mqttmsg={topic:node.state_schedule_list_topic,payload:msg.payload,qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
@@ -556,7 +542,7 @@ module.exports = function(RED) {
                     
                     if (msg.noout==true){
                         node.noout=true;
-                        node.log("noout==true");
+                        nlog("noout==true");
                     }
 
                     node.log(msg);
@@ -585,11 +571,6 @@ module.exports = function(RED) {
             const clientId=`mqtt_${Math.random().toString(16).slice(3)}`;
             const connectUrl = `${protocol}://${host}:${port}`
            
-            //node.log("user:["+node.mqttSettings.mqttUser+"]");
-            //node.log("pass:["+node.mqttSettings.mqttPassword+"]");
-            //node.log("mqtt.connectUrl:"+connectUrl);
-            //node.log("clientId:"+clientId);
-
             node.mqttclient = mqtt.connect(connectUrl, {
                 clientId,
                 clean: true,
