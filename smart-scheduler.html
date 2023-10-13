@@ -16,7 +16,6 @@
             
             schedules:{value:"[]"},
             activScheduleId:{value:""},
-            
             triggerMode:{value:"triggerMode.statechange.startup",required: true},
             topic:{value:""},
             defaultSp:{value:"5",required: true,validate:function(v) {
@@ -60,6 +59,13 @@
         label: function() {
             return this.name||"smart-scheduler";
         },
+        button: {
+            
+            onclick: function() {
+                node=this;
+                doInject();
+            }
+        },
         oneditprepare: function() {
             var node = this;
            
@@ -79,7 +85,6 @@
                 return m;
             };
 
-           
             node.maxRuleId=0;
             node.isMaxRuleId=function(id){
                 if (id>node.maxRuleId){
@@ -107,6 +112,30 @@
                     return true
                 }
                 return false;
+            }
+
+            var doInject=function(){
+                
+                $.ajax({
+                    url: "inject/" + node.id,
+                    type: "POST",
+                    data: JSON.stringify({}),
+                    contentType: "application/json; charset=utf-8",
+                    success: function (resp) {
+                        RED.notify(node._("inject.success", { label: "ss" }), { type: "success", id: "inject", timeout: 2000 });
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        if (jqXHR.status == 404) {
+                            RED.notify(node._("common.notification.error", { message: node._("common.notification.errors.not-deployed") }), "error");
+                        } else if (jqXHR.status == 500) {
+                            RED.notify(node._("common.notification.error", { message: node._("inject.errors.failed") }), "error");
+                        } else if (jqXHR.status == 0) {
+                            RED.notify(node._("common.notification.error", { message: node._("common.notification.errors.no-response") }), "error");
+                        } else {
+                            RED.notify(node._("common.notification.error", { message: node._("common.notification.errors.unexpected", { status: jqXHR.status, message: textStatus }) }), "error");
+                        }
+                    }
+                });
             }
             var configEventArray=function (ar){
                 
@@ -159,7 +188,6 @@
                         var listEvent = node.calendar.getEvents();
                         listEvent.forEach(event => { 
                             
-                            //m_s = moment(event.startStr);
                             let m_e = moment(event.endStr);
                             let s_dow=m_e.day();
                             if (s_dow==dest){
@@ -167,10 +195,7 @@
                                     return event.id != e.id;
                                 });
                                 event.remove();
-                                console.log(m_e);
                             }
-                                
-                            //event.remove()
                         });
                         listEvent.forEach(event => { 
                             let m_s = moment(event.startStr);
@@ -184,9 +209,9 @@
                                 let ev=node.activeSched.events.filter(function(e) {
                                     return event.id == e.id;
                                 });
-                                console.log(ev[0]);
+                                
                                 let r=node.rules.find(({ruleIdx}) => ruleIdx==ev[0].ruleIdx)
-                                console.log(r);
+
                                 node.maxEventId++;
 
                                 var eventData = {
@@ -205,11 +230,7 @@
 
                                 node.calendar.addEvent(eventData);
                                 node.activeSched.events.push(eventData);
-                            
                             }
-                            
-                        
-                        
                         });
 
                     }
@@ -229,10 +250,6 @@
                     width: 250,
                     color: "#f00"
                 });
-
-                
-
-
 
                 function colorChangeCallback(color) {
                    console.log("ctrl colorChangeCallback:"+ctrl_i);
@@ -282,13 +299,7 @@
                         omitZeroMinute: false,
                         meridiem: false,
                         hour12: false
-                    },/*
-                    eventDidMount: function(info) {
-                        $(info.el).tooltip({
-                            title: info.event.title,
-                        });
-                        
-                    },*/
+                    },
                     eventClick: function(info) {
                         
                         if (node.activeSched===undefined || ctrl_i!=-1)
@@ -335,8 +346,6 @@
                             ruleIdx:ctrl_i
                         };
 
-                        //console.log("eventData select id:"+eventData.id);
-
                         node.calendar.addEvent(eventData);
                         node.activeSched.events.push(eventData);
                     },
@@ -367,10 +376,6 @@
                          
                     },
                     eventDrop: function(info) {   
-                        
-                        //if(!start.isSame(end, 'day'))
-                        //    if(!start.add(1, 'day').startOf('day').isSame(end, 'minute'))
-                        //        revertFunc();
                         
                         if (node.activeSched===undefined)
                             return;
@@ -457,7 +462,7 @@
                 sortable: true,
                 addItem: function(container,i,opt) {
                     var rule = opt;
-                    console.log(rule);
+                    
                     if ( typeof opt == 'undefined' || Object.keys(opt).length==0){
                         node.maxRuleId++;
                         rule = {setName:"Confort",setColor:"#CCCCCC",spTemp:"19",ruleIdx:node.maxRuleId};
@@ -493,7 +498,6 @@
                     $('<button type="button" id="sched_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="red-ui-button toggle my-button-group"></button>').appendTo(sched_btn_grp);
                     
                     
-                
                     container[0].appendChild(fragment);
 
                     $('#node-input-set-name_'+rule.ruleIdx).val(rule.setName);
@@ -528,9 +532,7 @@
                     });
                 },
                 removeItem:function(data) {
-                    console.log("remove");
                     $("#sched_btn_"+data).remove(); // -<<<<<<<-----------Strange to be reviewed
-                    //console.log(data);
                 },
                 resizeItem: function(row,index) {
                     var originalData = $(row).data('data');
@@ -541,7 +543,6 @@
                 }
             });
             
-
             if (!node.rules) {
 
                 var rule = {
@@ -560,16 +561,12 @@
             $('<button type="button" id="sched_btn_del" idx="-1" class="red-ui-button toggle my-button-group"><i idx="-1" class="fa fa-trash-o  fa-2"></i></button>').appendTo(sched_btn_grp);
             
             $(".my-button-group").on("click", function(event) {
-                        console.log("here");
                         $(".my-button-group").removeClass("selected");
                         $(this).addClass("selected");
-                        console.log(event.target);
                         ctrl_i=$(event.target).attr('idx');
-                        console.log(ctrl_i);
                     });
 
             $("#node-input-CloneDay").on("click", function(event) {
-                console.log("click cloneday");
                 let src=parseInt($("#node-input-cc-src").find(":selected").val());
                 let dest=parseInt($("#node-input-cc-dest").find(":selected").val());
                 if (src==dest)
@@ -621,22 +618,13 @@
            
             node.rules.push(r);
         });
-        console.log(node.rules);
-
-        node.outputs=1;
-        node.inputs=1;
-       
-                             // use to reset;
-
+        
         node.settingChanged="1"; // Refresh runtime value;
 
         node.activScheduleId=$("#node-input-activeSchedule").find(":selected").val();
-        //console.log("here:"+node.activScheduleId);
         node.triggerMode=$("#node-input-triggerMode").find(":selected").val();
 
-        //node.overrideDuration=$("#node-input-overrideDuration").val();
         node.override=$("#node-input-override").find(":selected").val();
-        //node.defaultSp=$("#node-input-default-sp").val();
         
         // Transform and store data
         //node.configuredEvents=[];
@@ -660,24 +648,7 @@
         });
 
         node.schedules= JSON.stringify(node.configuredSchedules);
-        console.log(node.configuredSchedules);
-        console.log(node.schedules);
-
-        /*var events = node.configuredEvents.map(function(e) {
-            return {
-                id:e.id,
-                start: e.start,
-                end: e.end,
-                ruleIdx: parseInt(e.ruleIdx),
-                s_dow:e.s_dow,
-                s_mod:e.s_mod,
-                e_dow:e.e_dow,
-                e_mod:e.e_mod
-            };
-        });*/
-
-      //node.events = JSON.stringify(events);
-
+       
       delete window.calendar;
 
     },
@@ -694,32 +665,37 @@
     <div class="form-row">
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" title="node & home asssitant device name" id="node-input-name" placeholder="Name">
-       
     </div>
+
     <div class="form-row">
         <label for="node-input-topic"><i class="fa fa-tasks"></i> Topic</label>
         <input type="text" title="msg output topic"  id="node-input-topic" placeholder="Topic"></input>
     </div>
+
     <div class="form-row">
         <label for="node-input-topic"><i class="fa fa-tasks"></i> UniqueId</label>
         <input type="text" title="Unique id used for home assistant, has to be unique" id="node-input-uniqueId" placeholder="uniqueId"></input>
     </div>
+
     <div class="form-row">
-        <label for="node-input-defaultSp"><i class="fa fa-tasks"></i> Default set point</label>
+        <label for="node-input-defaultSp"><i class="fa fa-tasks"></i><b> Set point</b></label>
         <input type="text" title="set point temperature when no schedule event found" id="node-input-defaultSp" style="width:60px !important; text-align: right;" placeholder="temp"></input>
-        <label for="node-input-defaultSp"> °C</label> 
+        <label for="node-input-defaultSp"> °C (default)</label> 
     </div>
+
     <div class="form-row">
-        <label for="node-input-mqttSettings"><i class="fa fa-globe"></i> Mqtt</label>
+        <label for="node-input-mqttSettings"><i class="fa fa-wrench"></i> MQTT</label>
         <input type="text" id="node-input-mqttSettings"></input>
     </div>
+
     <div class="form-row">
-        <label for="node-input-activeSchedule"><i class="fa fa-calendar"></i> Schedule</label>
+        <label for="node-input-activeSchedule"><i class="fa fa-calendar"></i><b> Schedule</b></label>
         <select id="node-input-activeSchedule"></select>
         <a id="node-input-addSchedule" title="Add new schedule" class="red-ui-button"><i class="fa fa-calendar-plus-o fa-2"></i></a>
     </div>
+
     <div class="form-row" style="margin-bottom:0;">
-        <label><i class="fa fa-list"></i> <span data-i18n="change.label.rules"> Rules</span></label>
+        <label><i class="fa fa-list"></i> <span data-i18n="change.label.rules"><b> Rules</b></span></label>
         <dialog id="ColorPickerDialog"  style="width: 300px; height:320px" closed>
             <div id="colorPicker"></div>
             <form method="dialog">
@@ -728,17 +704,23 @@
             </form>
         </dialog>
     </div>
+
     <div class="form-row node-input-rule-container-row">
         <ol id="node-input-rule-container"></ol>
     </div>
 
     <div class="form-row">      
-        <label><i class="fa fa-calendar"></i><span data-i18n=""> Active</span></label>
+        <p style="padding-top: 10px"><i class="fa fa-calendar"></i><b> Schedule</b></p> 
+    </div>
+
+    <div class="form-row">      
+        <label><span data-i18n=""> Name</span></label>
         <input type="text" title="Active schedule name" style="width:250px;" id="node-input-scheduleName" placeholder="name"></input>
         <a id="node-input-deleteSchedule" title="Delete current schedule" class="red-ui-button"><i class="fa fa-trash-o  fa-2"></i></a> 
     </div>  
+
     <div class="form-row"> 
-        <label><i class="fa fa-clone"></i><span data-i18n=""> Copy</span></label>
+        <label><span data-i18n=""> Copy</span></label>
         <select id="node-input-cc-src" style="width:75px;">
             <option value="1">Mon</option>
             <option value="2">Tue</option>
@@ -759,7 +741,10 @@
             <option value="7">Sun</option>
         </select>
         <a id="node-input-CloneDay" title="Clone day" class="red-ui-button"><i class="fa fa-clone fa-2"></i></a>
-        Clean 
+    </div>
+    
+    <div class="form-row"> 
+        <label><span data-i18n=""> Clean</span></label>
         <a id="node-input-EmptySched" title="Clone day" class="red-ui-button"><i class="fa fa-eraser fa-2"></i></a>
     </div>
     
@@ -778,7 +763,10 @@
         </div>
     </div>  
     <div class="form-row">
-        <label for="node-input-triggerMode"><i class="fa fa-play"></i> Trigger mode </label>
+        <label for="node-input-triggerMode"><i class="fa fa-hand-o-right"></i> <b> Trigger</b></label>
+   </div>    
+    <div class="form-row">
+        <label for="node-input-triggerMode"><i class="fa fa-hand-o-right"></i> Mode</label>   
         <select id="node-input-triggerMode">
             <option value="triggerMode.statechange">when state changes</option>
             <option value="triggerMode.statechange.startup">when state changes + startup</option>
@@ -786,7 +774,7 @@
         </select>
     </div>
     <div class="form-row">      
-        <p style="padding-top: 10px"><i class="fa fa-play"></i> Override</p> 
+        <p style="padding-top: 10px"><i class="fa fa-chain-broken"></i><b> Override</b></p> 
     </div>
     <div class="form-row">
         <label for="node-input-override"> Mode </label>
@@ -807,11 +795,15 @@
         <label for="node-input-overrideDuration-2"> °C</label>
       </div>
       <div class="form-row">
-        <label style="width:120px !important;" for="node-input-debugInfo"><i class="fa fa-tasks"></i> Debug info</label>
+        <label style="width:120px !important;" for="node-input-debugInfo"><i class="fa fa-tasks"></i> <b> Debug</b></label>
+    
+    </div>
+        <div class="form-row">
+                <label style="width:120px !important;" for="node-input-debugInfo">info</label>
         <input type="checkbox" title="send debug information to the console" id="node-input-debugInfo"  ></input>
     </div> 
 </script>
 
 <script type="text/html" data-help-name="smart-scheduler">
-    <p>A simple node that converts the message payloads into all lower-case characters</p>
+    <p></p>
 </script>

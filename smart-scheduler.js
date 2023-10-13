@@ -643,4 +643,21 @@ module.exports = function(RED) {
     }
 
     RED.nodes.registerType('smart-scheduler', SmartScheduler)
+
+    RED.httpAdmin.post("/inject/:id", RED.auth.needsPermission("inject.write"), function(req,res) {
+        var node = RED.nodes.getNode(req.params.id);
+        if (node != null) {
+            try {
+               node.log("here 2222")
+                evaluate();
+                
+                res.sendStatus(200);
+            } catch(err) {
+                res.sendStatus(500);
+                node.error(RED._("inject.failed",{error:err.toString()}));
+            }
+        } else {
+            res.sendStatus(404);
+        }
+    });
 }
