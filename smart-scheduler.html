@@ -143,8 +143,77 @@
 
                 node.calendar.render();
             }
-            
-            
+            function EmptySchedule(){
+                if (node.calendar){
+                    var listEvent = node.calendar.getEvents();
+                    listEvent.forEach(event => { 
+                        event.remove()
+                    });
+                    node.activeSched.events=[];
+                }
+            }
+
+            function cloneDailySchedule(src,dest){
+                    // Iterate to delete any existing event on the dest day
+                    if (node.calendar){
+                        var listEvent = node.calendar.getEvents();
+                        listEvent.forEach(event => { 
+                            
+                            //m_s = moment(event.startStr);
+                            let m_e = moment(event.endStr);
+                            let s_dow=m_e.day();
+                            if (s_dow==dest){
+                                node.activeSched.events = node.activeSched.events.filter(function(e) {
+                                    return event.id != e.id;
+                                });
+                                event.remove();
+                                console.log(m_e);
+                            }
+                                
+                            //event.remove()
+                        });
+                        listEvent.forEach(event => { 
+                            let m_s = moment(event.startStr);
+                            let m_e = moment(event.endStr);
+                            let s_dow=m_s.day();
+                            if (s_dow==src){
+
+                                let newStart="2018-01-0"+dest+" "+m_s.format('HH:mm:ss');
+                                let newEnd="2018-01-0"+dest+" "+m_e.format('HH:mm:ss');
+
+                                let ev=node.activeSched.events.filter(function(e) {
+                                    return event.id == e.id;
+                                });
+                                console.log(ev[0]);
+                                let r=node.rules.find(({ruleIdx}) => ruleIdx==ev[0].ruleIdx)
+                                console.log(r);
+                                node.maxEventId++;
+
+                                var eventData = {
+                                    id: node.maxEventId,
+                                    title: r.setName,
+                                    start: newStart,
+                                    end: newEnd,
+                                    s_dow:dest,
+                                    s_mod:ev[0].s_mod,
+                                    e_dow:dest,
+                                    e_mod:ev[0].e_mod,
+                                    stick: true,
+                                    backgroundColor: r.setColor,
+                                    ruleIdx:ev[0].ruleIdx
+                                };
+
+                                node.calendar.addEvent(eventData);
+                                node.activeSched.events.push(eventData);
+                            
+                            }
+                            
+                        
+                        
+                        });
+
+                    }
+                }
 
             var setup = function(node) {
 
@@ -160,6 +229,10 @@
                     width: 250,
                     color: "#f00"
                 });
+
+                
+
+
 
                 function colorChangeCallback(color) {
                    console.log("ctrl colorChangeCallback:"+ctrl_i);
@@ -494,7 +567,19 @@
                         ctrl_i=$(event.target).attr('idx');
                         console.log(ctrl_i);
                     });
-           
+
+            $("#node-input-CloneDay").on("click", function(event) {
+                console.log("click cloneday");
+                let src=parseInt($("#node-input-cc-src").find(":selected").val());
+                let dest=parseInt($("#node-input-cc-dest").find(":selected").val());
+                if (src==dest)
+                    return;
+                cloneDailySchedule(src,dest);
+            });
+            $("#node-input-EmptySched").on("click", function(event) {
+                EmptySchedule();
+            });
+            
 
             $.getScript('resources/node-red-contrib-vib-smart-scheduler/moment.min.js')
             .done(function(data, textStatus, jqxhr) {
@@ -604,9 +689,7 @@
 
 <script type="text/html" data-template-name="smart-scheduler">
     <style>
-        ol#node-input-rule-container .red-ui-typedInput-container {
-            flex:1;
-        }
+        ol#node-input-rule-container .red-ui-typedInput-container {flex:1;}
     </style>
     <div class="form-row">
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
@@ -626,13 +709,10 @@
         <input type="text" title="set point temperature when no schedule event found" id="node-input-defaultSp" style="width:60px !important; text-align: right;" placeholder="temp"></input>
         <label for="node-input-defaultSp"> °C</label> 
     </div>
-    
-
     <div class="form-row">
         <label for="node-input-mqttSettings"><i class="fa fa-globe"></i> Mqtt</label>
         <input type="text" id="node-input-mqttSettings"></input>
     </div>
-
     <div class="form-row">
         <label for="node-input-activeSchedule"><i class="fa fa-calendar"></i> Schedule</label>
         <select id="node-input-activeSchedule"></select>
@@ -655,8 +735,33 @@
     <div class="form-row">      
         <label><i class="fa fa-calendar"></i><span data-i18n=""> Active</span></label>
         <input type="text" title="Active schedule name" style="width:250px;" id="node-input-scheduleName" placeholder="name"></input>
-        <a id="node-input-deleteSchedule" title="Delete current schedule" class="red-ui-button"><i class="fa fa-trash-o  fa-2"></i></a>
+        <a id="node-input-deleteSchedule" title="Delete current schedule" class="red-ui-button"><i class="fa fa-trash-o  fa-2"></i></a> 
     </div>  
+    <div class="form-row"> 
+        <label><i class="fa fa-clone"></i><span data-i18n=""> Copy</span></label>
+        <select id="node-input-cc-src" style="width:75px;">
+            <option value="1">Mon</option>
+            <option value="2">Tue</option>
+            <option value="3">Wed</option>
+            <option value="4">Thu</option>
+            <option value="5">Fri</option>
+            <option value="6">Sat</option>
+            <option value="7">Sun</option>
+        </select>
+        <i class="fa fa-arrow-circle-right"></i><span data-i18n=""></span>
+        <select id="node-input-cc-dest" style="width:75px;">
+            <option value="1">Mon</option>
+            <option value="2">Tue</option>
+            <option value="3">Wed</option>
+            <option value="4">Thu</option>
+            <option value="5">Fri</option>
+            <option value="6">Sat</option>
+            <option value="7">Sun</option>
+        </select>
+        <a id="node-input-CloneDay" title="Clone day" class="red-ui-button"><i class="fa fa-clone fa-2"></i></a>
+        Clean 
+        <a id="node-input-EmptySched" title="Clone day" class="red-ui-button"><i class="fa fa-eraser fa-2"></i></a>
+    </div>
     
     <div class="form-row">
         <span id="sched_btn_grp" class="button-group"></span>
@@ -683,31 +788,28 @@
     <div class="form-row">      
         <p style="padding-top: 10px"><i class="fa fa-play"></i> Override</p> 
     </div>
-        <div class="form-row">
-            <label for="node-input-override"> Mode </label>
-            <select id="node-input-override">
-                <option value="auto">auto</option>
-                <option value="manual">manual</option>
-                <option value="off">off</option>
-            </select>
-        </div>
-          <div class="form-row">
-            <label for="node-input-overrideDuration"> Duration</label>
-            <input type="text" title="override duration period" id="node-input-overrideDuration" style="width:60px !important; text-align: right;" placeholder="min"></input>
-            <label for="node-input-overrideDuration-2"> min</label>
-          </div>
-          <div class="form-row">
-            <label for="node-input-overrideSp"> Set point</label>
-            <input type="text" title="override temperature set point" id="node-input-overrideSp" style="width:60px !important; text-align: right;" placeholder="temperature"></input>
-            <label for="node-input-overrideDuration-2"> °C</label>
-          </div>
-          <div class="form-row">
-            <label style="width:120px !important;" for="node-input-debugInfo"><i class="fa fa-tasks"></i> Debug info</label>
-            <input type="checkbox" title="send debug information to the console" id="node-input-debugInfo"  ></input>
-        </div>
-      
-    
-    
+    <div class="form-row">
+        <label for="node-input-override"> Mode </label>
+        <select id="node-input-override">
+            <option value="auto">auto</option>
+            <option value="manual">manual</option>
+            <option value="off">off</option>
+        </select>
+    </div>
+      <div class="form-row">
+        <label for="node-input-overrideDuration"> Duration</label>
+        <input type="text" title="override duration period" id="node-input-overrideDuration" style="width:60px !important; text-align: right;" placeholder="min"></input>
+        <label for="node-input-overrideDuration-2"> min</label>
+      </div>
+      <div class="form-row">
+        <label for="node-input-overrideSp"> Set point</label>
+        <input type="text" title="override temperature set point" id="node-input-overrideSp" style="width:60px !important; text-align: right;" placeholder="temperature"></input>
+        <label for="node-input-overrideDuration-2"> °C</label>
+      </div>
+      <div class="form-row">
+        <label style="width:120px !important;" for="node-input-debugInfo"><i class="fa fa-tasks"></i> Debug info</label>
+        <input type="checkbox" title="send debug information to the console" id="node-input-debugInfo"  ></input>
+    </div> 
 </script>
 
 <script type="text/html" data-help-name="smart-scheduler">

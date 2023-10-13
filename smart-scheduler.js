@@ -36,7 +36,7 @@ module.exports = function(RED) {
         this.triggerMode = n.triggerMode ? n.triggerMode : 'trigger.statechange.startup'
         this.schedules = n.schedules ? n.schedules : "[]";
         this.schedules=JSON.parse(n.schedules);                                 // JSON of the node schedules and schedules.event
-    
+        this.rules=n.rules;  
         this.activScheduleId=n.activScheduleId;                                 // ID of the active schedule
         this.defaultSp=n.defaultSp ?  n.defaultSp : '5'                         // When no event, out put the default sp 
 
@@ -243,6 +243,11 @@ module.exports = function(RED) {
                 var dayStr=["","Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
                 var period=dayStr[m_s.days()]+" "+d_s+" - "+dayStr[m_e.days()]+" "+d_e;
+                if (node.rules===undefined){
+                    node.warn("error node.rules is undefined");
+                    return;
+                }
+                    
 
                 let r=node.rules.find(({ruleIdx}) => parseInt(ruleIdx)==parseInt(matchingEvent.ruleIdx));
                 if (r===undefined){
@@ -512,8 +517,7 @@ module.exports = function(RED) {
 
                     node.events=ev;                     // <------------------ TODO Change input by name and not by id
                     node.activScheduleId=msg.id;
-                    nlog("here");
-
+                   
                     msg.payload={value:node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId)).name};
                     
                     let mqttmsg={topic:node.state_schedule_list_topic,payload:msg.payload,qos:0,retain:false};
@@ -529,7 +533,7 @@ module.exports = function(RED) {
                 }
 
                 if (msg.payload=="override"){
-
+                    nlog("Input received: override");
                     if (msg.sp=== undefined || isNaN(msg.sp) || parseFloat(msg.sp)<0 || parseFloat(msg.sp)>35){ //<----------- Todo define Max & Min in config
                         node.warn('received trigger missing or invalid msg.sp number');
                         return;
@@ -549,7 +553,7 @@ module.exports = function(RED) {
                 }
                 
                 evaluate()
-            } else node.warn('Failed to interpret incoming msg.payload. Ignoring it!')
+            }
         })
 
         if (node.activScheduleId)
