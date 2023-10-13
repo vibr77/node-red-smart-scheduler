@@ -92,7 +92,7 @@ msg.payload={
 The smart scheduler is doing advertising of the entities and should be discovered as new device automatically.
 The name of the device in Home Assistant is the name of the node in the setting.
 
-
+<img src="https://github.com/vibr77/node-red-smart-scheduler/blob/main/doc/img/ha_ss.png?raw=true" width=450>
 
 
 
