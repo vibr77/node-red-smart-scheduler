@@ -107,7 +107,7 @@ module.exports = function(RED) {
         }
 
         function nlog(msg){
-            if (node.debug==true){
+            if (node.debugInfo==true){
                 node.log(msg);
             }
         }
