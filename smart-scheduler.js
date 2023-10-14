@@ -1,7 +1,7 @@
 
 /*
 __   _____ ___ ___        Author: Vincent BESSON
- \ \ / /_ _| _ ) _ \      Release: 0.44
+ \ \ / /_ _| _ ) _ \      Release: 0.66
   \ V / | || _ \   /      Date: 20230930
    \_/ |___|___/_|_\      Description: Nodered Heating Scheduler
                 2023      Licence: Creative Commons
@@ -75,8 +75,9 @@ module.exports = function(RED) {
         
         this.uniqueId=n.uniqueId ? n.uniqueId : "SmartScheduler_1";
 
-        this.adv_mode_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/mode/config";
+        this.adv_mode_topic=this.mqttPrefix+"/select/"+node.uniqueId+"/mode/config";
         this.state_mode_topic=this.mqttPrefix+"/"+node.uniqueId+"/mode/state";
+        this.set_mode_topic=this.mqttPrefix+"/"+node.uniqueId+"/mode/set";
 
         this.adv_current_sp_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/current_sp/config";
         this.state_current_sp_topic=this.mqttPrefix+"/"+node.uniqueId+"/current_sp/state";
@@ -182,10 +183,10 @@ module.exports = function(RED) {
             }else if (matchingEvent.ruleIdx==-1){
 
                 if (node.mqttclient!=null && node.mqttstack.length<100 ){
-                    let mqttmsg={topic:node.state_mode_topic,payload:{value:"Default"},qos:0,retain:false};
-                    node.mqttstack.push(mqttmsg);
+                    //let mqttmsg={topic:node.state_mode_topic,payload:{value:"au"},qos:0,retain:false};
+                    //node.mqttstack.push(mqttmsg);
                     
-                    mqttmsg={topic:node.state_current_sp_topic,payload:{value:node.defaultSp},qos:0,retain:false};
+                    let mqttmsg={topic:node.state_current_sp_topic,payload:{value:node.defaultSp},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
                     mqttmsg={topic:node.state_previous_sp_topic,payload:{value:node.prevSp},qos:0,retain:false};
@@ -256,7 +257,9 @@ module.exports = function(RED) {
                 }
 
                 if (node.mqttclient!=null && node.mqttstack.length<100){
-                    let mqttmsg={topic:node.state_mode_topic,payload:{value:"Auto"},qos:0,retain:false};
+
+
+                    let mqttmsg={topic:node.state_mode_topic,payload:{value:"auto"},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
                     mqttmsg={topic:node.state_current_sp_topic,payload:{value:r.spTemp},qos:0,retain:false};
@@ -314,12 +317,8 @@ module.exports = function(RED) {
             nlog("   node.prevRuleIdx:"+node.prevRuleIdx);
             nlog("   node.activeSp:"+node.activeSp);
             nlog("   node.prevSp:"+node.prevSp);
+            nlog("   noout:"+node.noout)
             
-            if (node.noout==true)
-                nlog("   node.noout:true");
-            else 
-                nlog("   node.noout:false");
-
             if (node.manualTrigger || 
                 node.triggerMode == 'triggerMode.minutely' || 
                 !isEqual(node.activeRuleIdx, node.prevRuleIdx) || 
@@ -327,7 +326,7 @@ module.exports = function(RED) {
                                 
                 if (/*!node.firstEval &&*/ !node.noout){
                     node.send([msg,null]);
-                    nlog("   output msg:"+JSON.stringify(msg));
+                    //nlog("   output msg:"+JSON.stringify(msg));
                     node.noout=false;
                 }else if (node.noout==true)
                     node.noout=false;
@@ -343,17 +342,21 @@ module.exports = function(RED) {
 
         function mqttAdvertise(){
             
-            var msg={};
+            let msg={};
             msg.payload={
                 name:"Mode",
                 uniq_id:node.uniqueId+"MODE",
                 icon:"mdi:cog-clockwise",
                 qos:0,
                 retain:true,
+                command_topic:node.set_mode_topic,
+                options:["off","manual","auto"],
                 state_topic:node.state_mode_topic,
                 value_template:"{{value_json.value}}",
                 dev:node.dev
             }
+            let mqttmsg={topic:node.adv_mode_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
+            node.mqttstack.push(mqttmsg);
 
             let arr=[];
             if (node.schedules){
@@ -368,21 +371,15 @@ module.exports = function(RED) {
                 icon:"mdi:calendar-text-outline",
                 qos:0,
                 retain:true,
-                entity_category: "config",
                 state_topic:node.state_schedule_list_topic,
                 command_topic:node.set_schedule_list_topic,
-                command_template:"{{value_json.value}}",
                 options:arr,
                 value_template:"{{value_json.value}}",
                 dev:node.dev
             }
 
-            let mqttmsg={topic:node.adv_schedule_list_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
-            node.mqttstack.push(mqttmsg);
-
             
-            msg.payload=node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId)).name;
-            mqttmsg={topic:node.state_schedule_list_topic,payload:msg.payload,qos:0,retain:false};
+            mqttmsg={topic:node.adv_schedule_list_topic,payload:msg.payload,qos:0,retain:false};
             node.mqttstack.push(mqttmsg);
             
             msg.payload={
@@ -503,20 +500,22 @@ module.exports = function(RED) {
 
                 if (msg.payload=="schedule"){
 
-                    if (msg.id===undefined){
-                        node.warn('received schedule missing or invalid msg.id number');
+                    if (msg.name===undefined){
+                        node.warn('input received schedule missing msg.name ');
                         return;
                     }
-
-                    let ev=node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(msg.id)).events;
+                    let s=node.schedules.find(({name}) => name==msg.name);
+                
+                    if (s===undefined){
+                        node.warn('input received schedule name not found');
+                        return;
+                    }
                     
-                    if (ev===undefined){
-                        node.warn('received schedule id not found');
-                        return;
-                    }
 
-                    node.events=ev;                     // <------------------ TODO Change input by name and not by id
-                    node.activScheduleId=msg.id;
+                    node.events=s.events;                     // <------------------ TODO Change input by name and not by id
+                    node.activScheduleId=s.idx;
+                    nlog("input change activeSchedule")
+                    nlog("node.activScheduleId:"+node.activScheduleId);
                    
                     msg.payload={value:node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId)).name};
                     
@@ -552,7 +551,7 @@ module.exports = function(RED) {
                     node.log(msg);
                 }
                 
-                evaluate()
+                evaluate();
             }
         })
 
@@ -591,9 +590,35 @@ module.exports = function(RED) {
         
             node.mqttclient.on('connect', () => {
 
-                node.log('MQTT Connected start dequeuing'); 
+                mqttAdvertise();
+
+                // Initial value at startuo
+                let mqttmsg={topic:node.state_mode_topic,payload:{value:node.override},qos:0,retain:false};
+                node.mqttstack.push(mqttmsg);
+
+                nlog("MQTT node.activScheduleId:"+node.activScheduleId)
+                let s=node.schedules.find(({idx}) => parseInt(idx)==parseInt(node.activScheduleId));
+                
+                if (s!==undefined){
+                    mqttmsg={topic:node.state_schedule_list_topic,payload:{value:s.name},qos:0,retain:false};
+                    node.log(JSON.stringify(mqttmsg));
+                    node.mqttstack.push(mqttmsg);
+                    nlog("MQTT init schedule name:"+s.name);
+                }else{
+                    nlog("MQTT init value can not find schedule");
+                }
+
+                sendMqtt();
+
+                node.mqttclient.subscribe([node.set_mode_topic,node.set_schedule_list_topic], () => {
+                    nlog("MQTT Subscribe to topic:")
+                    nlog("  "+node.set_mode_topic);
+                    nlog("  "+node.set_schedule_list_topic);
+                })
+
+                nlog('MQTT Connected start dequeuing'); 
+
                 let msg=node.mqttstack.shift();
-            
                 while (msg!==undefined){
                     if (msg.topic===undefined || msg.payload===undefined)
                         return;
@@ -606,6 +631,41 @@ module.exports = function(RED) {
                     msg=node.mqttstack.shift();
                 }
             });
+
+            node.mqttclient.on('message', (topic, payload) => {
+                node.log('MQTT Received topic:'+topic);
+                let p=payload.toString();
+                node.log('MQTT Received payload:'+p);
+
+                if (topic==node.set_mode_topic && (p=="auto" || p=="manual" || p=="off")){
+                    nlog("MQTT change override mode:"+p);
+                    var now = new Date();
+                    node.overrideTs=now.toISOString();
+                    node.override=p;
+
+                    let mqttmsg={topic:node.state_mode_topic,payload:{value:node.override},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+                    
+
+                    evaluate(); 
+                }else if(topic==node.set_schedule_list_topic){
+                    let s=node.schedules.find(({name}) => name==p);
+                
+                    if (s!==undefined){
+                        nlog("MQTT change activeSchedule")
+                        node.activScheduleId=s.idx;
+                        node.events=s.events;
+
+                        let mqttmsg={topic:node.state_schedule_list_topic,payload:{value:p},qos:0,retain:false};
+                        node.mqttstack.push(mqttmsg);
+                        sendMqtt();
+
+                        evaluate();                     
+                    }else{
+                        nlog("MQTT received schedule name not found");
+                    }
+                }
+            })
         }
     
             function sendMqtt(){
@@ -634,7 +694,7 @@ module.exports = function(RED) {
             };
 
 
-        mqttAdvertise();
+        
 
         node.on('close', function() {
             clearInterval(node.evalInterval)
