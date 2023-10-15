@@ -31,6 +31,7 @@
                 }
                 return true;
             } },
+            allowOverride:{value:false},
             override:{value:"auto"},
             overrideDuration:{value:"120",validate:RED.validators.number() },
             overrideTs:{value:"5"},
@@ -776,6 +777,11 @@
     <div class="form-row">      
         <p style="padding-top: 10px"><i class="fa fa-chain-broken"></i><b> Override</b></p> 
     </div>
+    <div class="form-row">
+        <label style="width:120px !important;" for="node-input-allowOverride">Allow</label>
+        <input type="checkbox" title="allow override mode" id="node-input-allowOverride"  ></input>
+    </div> 
+    
     <div class="form-row">
         <label for="node-input-override"> Mode </label>
         <select id="node-input-override">

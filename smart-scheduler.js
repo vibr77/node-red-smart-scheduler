@@ -19,6 +19,7 @@ TODO:
 
 var moment = require('moment'); // require
 const mqtt = require("mqtt");
+var pjson = require('./package.json');
 
 module.exports = function(RED) {
     'use strict'
@@ -30,8 +31,7 @@ module.exports = function(RED) {
         RED.nodes.createNode(this, n)
        
         this.topic = n.topic
-
-               
+   
         this.name=n.name ? n.name : "smartscheduler";
         this.triggerMode = n.triggerMode ? n.triggerMode : 'trigger.statechange.startup'
         this.schedules = n.schedules ? n.schedules : "[]";
@@ -39,7 +39,7 @@ module.exports = function(RED) {
         this.rules=n.rules;  
         this.activScheduleId=n.activScheduleId;                                 // ID of the active schedule
         this.defaultSp=n.defaultSp ?  n.defaultSp : '5'                         // When no event, out put the default sp 
-
+        this.allowOverride=n.allowOverride ? n.allowOverride :false;
         this.override = n.override ? n.override : 'auto'                        // Current execution mode
         this.overrideTs= n.overrideTs ? n.overrideTs : '0'                      // Timestamp of override mode start 
         this.overrideDuration=n.overrideDuration ? n.overrideDuration :"120"    // Duration of the override periode (set in setting)
@@ -98,12 +98,13 @@ module.exports = function(RED) {
         this.state_schedule_list_topic=this.mqttPrefix+"/"+node.uniqueId+"/schedule_list/state";
         this.set_schedule_list_topic=this.mqttPrefix+"/"+node.uniqueId+"/schedule_list/set";
 
+        //pjson.version
         this.dev={
             ids:[node.uniqueId],
             name:node.name,
             mdl:"Smart-Scheduler",
             mf:"VIBR",
-            sw:"0.34",
+            sw:"0.66",
             hw_version:"1.0"
         }
 
@@ -474,9 +475,14 @@ module.exports = function(RED) {
                     nlog("   override=manual->auto");
                 }
             }
+            let s=node.schedules.find(({idx}) => parseInt(idx)==parseInt(node.activScheduleId));
+            if (s===undefined){
+                node.warn("scheduler is undefined returning");
+                return;
+            }
 
-            var matchEvent = scheduler.matchSchedule(node)
-            nlog("MatchEvent="+matchEvent);
+            var matchEvent = scheduler.matchSchedule(s)
+            nlog("MatchEvent: ruleIdx:"+matchEvent.ruleIdx+", eventId:"+matchEvent.eventId);
             
             node.activeRuleIdx=parseInt(matchEvent.ruleIdx);
 
