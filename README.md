@@ -90,7 +90,7 @@ msg.payload={
 
 ### Configuration setting
 
-<img src="https://github.com/vibr77/node-red-smart-scheduler/blob/main/doc/img/ss_node_settings?raw=true" width=450>
+<img src="https://github.com/vibr77/node-red-smart-scheduler/blob/main/doc/img/ss_node_settings.png?raw=true" width=450>
 
 #### List of settings:
 
@@ -128,7 +128,7 @@ The name of the device in Home Assistant is the name of the node in the setting.
 
 If you like my work, please support me
 
-<a href="https://www.buymeacoffee.com/vincentbe" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+i<a href="https://www.buymeacoffee.com/vincentbe" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 
 
