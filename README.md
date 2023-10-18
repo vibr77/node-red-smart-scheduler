@@ -114,8 +114,9 @@ msg.payload={
 | Debug info| [true|false] | enable output debug to console|  
 
 
+<img src="https://github.com/vibr77/node-red-smart-scheduler/blob/main/doc/img/tuto_settings_sched_1.png?raw=true" width=450>
 
-
+<img src="https://github.com/vibr77/node-red-smart-scheduler/blob/main/doc/img/tuto_settings_sched_2.png?raw=true" width=450>
 
 ### Interface with Home Assistant
 

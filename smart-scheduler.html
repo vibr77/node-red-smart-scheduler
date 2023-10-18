@@ -500,7 +500,7 @@
                     
                     if ( typeof opt == 'undefined' || Object.keys(opt).length==0){
                         node.maxRuleId++;
-                        rule = {setName:"Confort",setColor:"#CCCCCC",spTemp:"19",ruleIdx:node.maxRuleId};
+                        rule = {setName:"Heating "+node.maxRuleId,setColor:"#CCCCCC",spTemp:"19",ruleIdx:node.maxRuleId};
                         node.rules.push(rule);
 
                     }else{
@@ -530,7 +530,8 @@
                     
                     $('<button type="button" id="cc_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="cc_btn red-ui-button red-ui-button"  style="margin-left: 5px !important; height: 32px !important;">&nbsp;&nbsp;&nbsp;</button>').appendTo(row1);
                     
-                    $('<button type="button" id="sched_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="red-ui-button toggle my-button-group"></button>').appendTo(sched_btn_grp);
+                    //$('<button type="button" id="sched_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="red-ui-button toggle my-button-group"></button>').appendTo(sched_btn_grp);
+                    $('<button type="button" id="sched_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="red-ui-button toggle my-button-group"></button>').insertBefore($('#sched_btn_del'));
                     
                     
                     container[0].appendChild(fragment);
@@ -589,11 +590,11 @@
 
                 node.rules = [rule];
             }
+            $('<button type="button" id="sched_btn_del" idx="-1" class="red-ui-button toggle my-button-group"><i idx="-1" class="fa fa-trash-o  fa-2"></i></button>').appendTo(sched_btn_grp);
             
             this.rules.forEach((rule,index,ar) => {
                 $("#node-input-rule-container").editableList('addItem',rule);
             });
-            $('<button type="button" id="sched_btn_del" idx="-1" class="red-ui-button toggle my-button-group"><i idx="-1" class="fa fa-trash-o  fa-2"></i></button>').appendTo(sched_btn_grp);
             
             $(".my-button-group").on("click", function(event) {
                         $(".my-button-group").removeClass("selected");
