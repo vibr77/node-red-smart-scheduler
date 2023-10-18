@@ -3,13 +3,16 @@
     var eColor="#558006";
     var ctrl_i=0;
 
+
+    
+
     RED.nodes.registerType('smart-scheduler',{
         
         category: 'vib-node',
         color: '#bdeeff',
         defaults: {
             mqttSettings: {value: "", type: "smart-scheduler-settings"},
-            name: {value:""},
+            name: {value:"smart-scheduler"},
             rules:{value:[{setName:"Confort",setColor:"#CCCCCC",spTemp:"19"}],validate: function(rules, opt) {
                 return true;
             }},
@@ -21,7 +24,6 @@
             defaultSp:{value:"5",required: true,validate:function(v) {
                 
                 if (isNaN(v)){
-                    console.log(here)
                     return false;
                 }
 
@@ -31,8 +33,9 @@
                 }
                 return true;
             } },
+           
             allowOverride:{value:false},
-            override:{value:"auto"},
+            executionMode:{value:"auto"},
             overrideDuration:{value:"120",validate:RED.validators.number() },
             overrideTs:{value:"5"},
             overrideSp:{value:"0",required: true, validate:function(v) {
@@ -52,19 +55,50 @@
             uniqueId:{value:"SmartScheduler_1",required: true,validate:function(v) {
                 return true;
             }},
+            cycleDuration:{value:1,required:true,validate:function(v){
+                if (isNaN(v)){
+                    return false;
+                }
+
+                if (v<1 || v> 60){
+                    //this.warn("overrideSp need to be >1 et <= 60")
+                    return false;
+                }
+                
+                return true
+            }},
             debugInfo:{value:false}
         },
         inputs:1,
         outputs:1,
         icon: "font-awesome/fa-calendar",
         label: function() {
-            return this.name||"smart-scheduler";
+            return this.name || "smart-scheduler";
         },
         button: {
             
             onclick: function() {
-                node=this;
-                doInject();
+                let node=this;
+                $.ajax({
+                    url: "smartsched/" + node.id,
+                    type: "POST",
+                    data: JSON.stringify({payload:{command:"trigger"}}),
+                    contentType: "application/json; charset=utf-8",
+                    success: function (resp) {
+                        RED.notify(node._("smart-scheduler trigger sucess", { label: "ss" }), { type: "success", id: "inject", timeout: 2000 });
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        if (jqXHR.status == 404) {
+                            RED.notify(node._("common.notification.error", { message: node._("common.notification.errors.not-deployed") }), "error");
+                        } else if (jqXHR.status == 500) {
+                            RED.notify(node._("common.notification.error", { message: node._("inject.errors.failed") }), "error");
+                        } else if (jqXHR.status == 0) {
+                            RED.notify(node._("common.notification.error", { message: node._("common.notification.errors.no-response") }), "error");
+                        } else {
+                            RED.notify(node._("common.notification.error", { message: node._("common.notification.errors.unexpected", { status: jqXHR.status, message: textStatus }) }), "error");
+                        }
+                    }
+                });
             }
         },
         oneditprepare: function() {
@@ -115,7 +149,7 @@
                 return false;
             }
 
-            var doInject=function(){
+            node.doInject=function(){
                 
                 $.ajax({
                     url: "inject/" + node.id,
@@ -239,8 +273,8 @@
 
             var setup = function(node) {
 
-                $("#node-input-triggerMode").val(node.triggerMode ? node.triggerMode : 'triggerMode.statechange.startup'); 
-                $("#node-input-override").val(node.override ? node.override : 'auto');        
+                //$("#node-input-triggerMode").val(node.triggerMode ? node.triggerMode : 'triggerMode.statechange.startup'); 
+               // $("#node-input-executionMode").val(node.override ? node.override : 'auto');        
                 
                 node.configuredSchedules=[];
                 if (node.schedules===undefined){
@@ -623,9 +657,9 @@
         node.settingChanged="1"; // Refresh runtime value;
 
         node.activScheduleId=$("#node-input-activeSchedule").find(":selected").val();
-        node.triggerMode=$("#node-input-triggerMode").find(":selected").val();
+        //node.triggerMode=$("#node-input-triggerMode").find(":selected").val();
 
-        node.override=$("#node-input-override").find(":selected").val();
+        //node.override=$("#node-input-override").find(":selected").val();
         
         // Transform and store data
         //node.configuredEvents=[];
@@ -774,17 +808,24 @@
             <option value="triggerMode.minutely">every minute</option>
         </select>
     </div>
+
+    
+    <div class="form-row">
+        <label style="width:120px !important;" for="node-input-cycleDuration">Cycle</label>
+        <input type="text" title="override duration period" id="node-input-cycleDuration" style="width:60px !important; text-align: right;" placeholder="min"></input>
+        <label for="node-input-overrideDuration-2"> min</label>
+    </div> 
     <div class="form-row">      
-        <p style="padding-top: 10px"><i class="fa fa-chain-broken"></i><b> Override</b></p> 
+        <p style="padding-top: 10px"><i class="fa fa-chain-broken"></i><b> Execution</b></p> 
     </div>
     <div class="form-row">
-        <label style="width:120px !important;" for="node-input-allowOverride">Allow</label>
+        <label style="width:120px !important;" for="node-input-allowOverride">Override</label>
         <input type="checkbox" title="allow override mode" id="node-input-allowOverride"  ></input>
     </div> 
     
     <div class="form-row">
-        <label for="node-input-override"> Mode </label>
-        <select id="node-input-override">
+        <label for="node-input-executionMode"> Mode </label>
+        <select id="node-input-executionMode">
             <option value="auto">auto</option>
             <option value="manual">manual</option>
             <option value="off">off</option>
