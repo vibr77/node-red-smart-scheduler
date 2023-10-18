@@ -1,215 +1,57 @@
 [
     {
-        "id": "36b1282e11e459ba",
-        "type": "api-call-service",
-        "z": "5585941507ec4a06",
-        "name": "HA Service",
-        "server": "2ea59f8981c891f6",
-        "version": 5,
-        "debugenabled": false,
-        "domain": "",
-        "service": "",
-        "areaId": [],
-        "deviceId": [],
-        "entityId": [],
-        "data": "",
-        "dataType": "jsonata",
-        "mergeContext": "",
-        "mustacheAltTags": false,
-        "outputProperties": [],
-        "queue": "none",
-        "x": 810,
-        "y": 760,
-        "wires": [
-            []
-        ]
-    },
-    {
-        "id": "efbff73234bb6f03",
-        "type": "smart-boiler",
-        "z": "5585941507ec4a06",
-        "name": "SMART-BOILER",
-        "topic": "",
-        "mqttSettings": "",
-        "boilerTempTopic": "homeassistant/opentherm-thermostat/current-temperature/set",
-        "boilerSpTopic": "homeassistant/opentherm-thermostat/setpoint-temperature/set",
-        "boilerLeadingDeviceTopic": "homeassistant/opentherm-thermostat/leading_device/state",
-        "mqttUpdates": false,
-        "debugInfo": true,
-        "boilerSecurity": true,
-        "cycleDuration": "120",
-        "outputUpdates": true,
-        "defaultSp": "7",
-        "defaultTemp": "10",
-        "maxDurationSinceLastInput": "15",
-        "x": 820,
-        "y": 700,
-        "wires": [
-            [
-                "bccec4c8227b07f5"
-            ]
-        ]
-    },
-    {
-        "id": "bccec4c8227b07f5",
-        "type": "debug",
-        "z": "5585941507ec4a06",
-        "name": "DEBUG_BOILER",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 1010,
-        "y": 700,
-        "wires": []
-    },
-    {
-        "id": "2c10d69eb92e8ae0",
-        "type": "link in",
-        "z": "5585941507ec4a06",
-        "name": "BOILER_IN",
-        "links": [
-            "3cf1abba8a26c96c",
-            "0d0c0b35d815784f",
-            "e72553365da9133b",
-            "b07ad4053b087a11",
-            "ad83e89ce032787b",
-            "bb5e814feab67d47",
-            "4c51fd5f05b16702",
-            "3be32035e3f4fed2",
-            "ef901dbfa287a9e5",
-            "748dcff75d7c49c1"
-        ],
-        "x": 685,
-        "y": 700,
-        "wires": [
-            [
-                "efbff73234bb6f03"
-            ]
-        ]
-    },
-    {
-        "id": "57519b084d136298",
-        "type": "link in",
-        "z": "5585941507ec4a06",
-        "name": "HA_SERVICE_IN",
-        "links": [
-            "6fc891bedd3ceacb",
-            "7e9444962225d7a3",
-            "acbbc2b3d7fd13b5",
-            "187ad93373663e5c",
-            "1446e94e7f8144ba",
-            "6029ab088e5950b5",
-            "cf312c909edd116b",
-            "cf48cc21938965e7",
-            "09ef091af66f0223",
-            "e07b80d664c0de68",
-            "df71c2484eb9d6b8",
-            "cca84b8e38d4260c"
-        ],
-        "x": 685,
-        "y": 760,
-        "wires": [
-            [
-                "36b1282e11e459ba",
-                "97f80b5c673d66dd"
-            ]
-        ]
-    },
-    {
-        "id": "999e7620e32d378e",
-        "type": "change",
-        "z": "5585941507ec4a06",
-        "name": "TRSL",
-        "rules": [
-            {
-                "t": "set",
-                "p": "sp",
-                "pt": "msg",
-                "to": "payload.setPoint",
-                "tot": "msg"
-            },
-            {
-                "t": "set",
-                "p": "payload",
-                "pt": "msg",
-                "to": "on",
-                "tot": "str"
-            }
-        ],
-        "action": "",
-        "property": "",
-        "from": "",
-        "to": "",
-        "reg": false,
-        "x": 490,
-        "y": 600,
-        "wires": [
-            [
-                "1822e8a9479dc72f"
-            ]
-        ]
-    },
-    {
-        "id": "71f5c3f1f1fc1dfa",
+        "id": "b57dc15288074831",
         "type": "smart-scheduler",
-        "z": "5585941507ec4a06",
-        "mqttSettings": "",
-        "name": "Salon scheduler_test",
+        "z": "d67a51a664ff0117",
+        "mqttSettings": "2b95657f9aa8d5b2",
+        "name": "smart-scheduler",
         "rules": [
             {
-                "setName": "Night",
-                "setColor": "#5e76ff",
+                "setName": "Confort",
+                "setColor": "#ff596f",
                 "spTemp": "22",
                 "ruleIdx": "1"
             },
             {
                 "setName": "Eco",
-                "setColor": "#53cf95",
+                "setColor": "#33a0ff",
                 "spTemp": "19",
                 "ruleIdx": "2"
             },
             {
-                "setName": "Confort",
-                "setColor": "#cf4a91",
-                "spTemp": "20",
+                "setName": "Night",
+                "setColor": "#72c736",
+                "spTemp": "19",
                 "ruleIdx": "3"
-            },
-            {
-                "setName": "Confort+",
-                "setColor": "#ff3029",
-                "spTemp": "21",
-                "ruleIdx": "4"
             }
         ],
-        "schedules": "[{\"name\":\"Normal schedule\",\"idx\":1,\"events\":[{\"id\":6,\"start\":\"2018-01-01T20:00:00+01:00\",\"end\":\"2018-01-01T22:00:00+01:00\",\"ruleIdx\":4,\"s_dow\":1,\"s_mod\":1200,\"e_dow\":1,\"e_mod\":1320},{\"id\":11,\"start\":\"2018-01-01T00:00:00+01:00\",\"end\":\"2018-01-01T05:30:00+01:00\",\"ruleIdx\":1,\"s_dow\":1,\"s_mod\":0,\"e_dow\":1,\"e_mod\":330},{\"id\":12,\"start\":\"2018-01-01T05:30:00+01:00\",\"end\":\"2018-01-01T06:30:00+01:00\",\"ruleIdx\":2,\"s_dow\":1,\"s_mod\":330,\"e_dow\":1,\"e_mod\":390},{\"id\":13,\"start\":\"2018-01-01T06:30:00+01:00\",\"end\":\"2018-01-01T08:00:00+01:00\",\"ruleIdx\":3,\"s_dow\":1,\"s_mod\":390,\"e_dow\":1,\"e_mod\":480},{\"id\":14,\"start\":\"2018-01-01T08:00:00+01:00\",\"end\":\"2018-01-01T17:00:00+01:00\",\"ruleIdx\":2,\"s_dow\":1,\"s_mod\":480,\"e_dow\":1,\"e_mod\":1020},{\"id\":15,\"start\":\"2018-01-01T17:00:00+01:00\",\"end\":\"2018-01-01T20:00:00+01:00\",\"ruleIdx\":3,\"s_dow\":1,\"s_mod\":1020,\"e_dow\":1,\"e_mod\":1200},{\"id\":30,\"start\":\"2018-01-01T22:00:00+01:00\",\"end\":\"2018-01-01T23:55:00+01:00\",\"ruleIdx\":1,\"s_dow\":1,\"s_mod\":1320,\"e_dow\":1,\"e_mod\":1435},{\"id\":52,\"start\":\"2018-01-07 20:00:00\",\"end\":\"2018-01-07 22:00:00\",\"ruleIdx\":4,\"s_dow\":7,\"s_mod\":1200,\"e_dow\":7,\"e_mod\":1320},{\"id\":53,\"start\":\"2018-01-07 00:00:00\",\"end\":\"2018-01-07 05:30:00\",\"ruleIdx\":1,\"s_dow\":7,\"s_mod\":0,\"e_dow\":7,\"e_mod\":330},{\"id\":54,\"start\":\"2018-01-07 05:30:00\",\"end\":\"2018-01-07 06:30:00\",\"ruleIdx\":2,\"s_dow\":7,\"s_mod\":330,\"e_dow\":7,\"e_mod\":390},{\"id\":55,\"start\":\"2018-01-07 06:30:00\",\"end\":\"2018-01-07 08:00:00\",\"ruleIdx\":3,\"s_dow\":7,\"s_mod\":390,\"e_dow\":7,\"e_mod\":480},{\"id\":56,\"start\":\"2018-01-07 08:00:00\",\"end\":\"2018-01-07 17:00:00\",\"ruleIdx\":2,\"s_dow\":7,\"s_mod\":480,\"e_dow\":7,\"e_mod\":1020},{\"id\":57,\"start\":\"2018-01-07 17:00:00\",\"end\":\"2018-01-07 20:00:00\",\"ruleIdx\":3,\"s_dow\":7,\"s_mod\":1020,\"e_dow\":7,\"e_mod\":1200},{\"id\":71,\"start\":\"2018-01-02 20:00:00\",\"end\":\"2018-01-02 22:00:00\",\"ruleIdx\":4,\"s_dow\":2,\"s_mod\":1200,\"e_dow\":2,\"e_mod\":1320},{\"id\":72,\"start\":\"2018-01-02 00:00:00\",\"end\":\"2018-01-02 05:30:00\",\"ruleIdx\":1,\"s_dow\":2,\"s_mod\":0,\"e_dow\":2,\"e_mod\":330},{\"id\":73,\"start\":\"2018-01-02 05:30:00\",\"end\":\"2018-01-02 06:30:00\",\"ruleIdx\":2,\"s_dow\":2,\"s_mod\":330,\"e_dow\":2,\"e_mod\":390},{\"id\":74,\"start\":\"2018-01-02 06:30:00\",\"end\":\"2018-01-02 08:00:00\",\"ruleIdx\":3,\"s_dow\":2,\"s_mod\":390,\"e_dow\":2,\"e_mod\":480},{\"id\":75,\"start\":\"2018-01-02 08:00:00\",\"end\":\"2018-01-02 17:00:00\",\"ruleIdx\":2,\"s_dow\":2,\"s_mod\":480,\"e_dow\":2,\"e_mod\":1020},{\"id\":76,\"start\":\"2018-01-02 17:00:00\",\"end\":\"2018-01-02 20:00:00\",\"ruleIdx\":3,\"s_dow\":2,\"s_mod\":1020,\"e_dow\":2,\"e_mod\":1200},{\"id\":77,\"start\":\"2018-01-02 22:00:00\",\"end\":\"2018-01-02 23:55:00\",\"ruleIdx\":1,\"s_dow\":2,\"s_mod\":1320,\"e_dow\":2,\"e_mod\":1435},{\"id\":78,\"start\":\"2018-01-03 20:00:00\",\"end\":\"2018-01-03 22:00:00\",\"ruleIdx\":4,\"s_dow\":3,\"s_mod\":1200,\"e_dow\":3,\"e_mod\":1320},{\"id\":79,\"start\":\"2018-01-03 00:00:00\",\"end\":\"2018-01-03 05:30:00\",\"ruleIdx\":1,\"s_dow\":3,\"s_mod\":0,\"e_dow\":3,\"e_mod\":330},{\"id\":80,\"start\":\"2018-01-03 05:30:00\",\"end\":\"2018-01-03 06:30:00\",\"ruleIdx\":2,\"s_dow\":3,\"s_mod\":330,\"e_dow\":3,\"e_mod\":390},{\"id\":81,\"start\":\"2018-01-03 06:30:00\",\"end\":\"2018-01-03 08:00:00\",\"ruleIdx\":3,\"s_dow\":3,\"s_mod\":390,\"e_dow\":3,\"e_mod\":480},{\"id\":82,\"start\":\"2018-01-03 08:00:00\",\"end\":\"2018-01-03 17:00:00\",\"ruleIdx\":2,\"s_dow\":3,\"s_mod\":480,\"e_dow\":3,\"e_mod\":1020},{\"id\":83,\"start\":\"2018-01-03 17:00:00\",\"end\":\"2018-01-03 20:00:00\",\"ruleIdx\":3,\"s_dow\":3,\"s_mod\":1020,\"e_dow\":3,\"e_mod\":1200},{\"id\":84,\"start\":\"2018-01-03 22:00:00\",\"end\":\"2018-01-03 23:55:00\",\"ruleIdx\":1,\"s_dow\":3,\"s_mod\":1320,\"e_dow\":3,\"e_mod\":1435},{\"id\":85,\"start\":\"2018-01-04 20:00:00\",\"end\":\"2018-01-04 22:00:00\",\"ruleIdx\":4,\"s_dow\":4,\"s_mod\":1200,\"e_dow\":4,\"e_mod\":1320},{\"id\":86,\"start\":\"2018-01-04 00:00:00\",\"end\":\"2018-01-04 05:30:00\",\"ruleIdx\":1,\"s_dow\":4,\"s_mod\":0,\"e_dow\":4,\"e_mod\":330},{\"id\":87,\"start\":\"2018-01-04 05:30:00\",\"end\":\"2018-01-04 06:30:00\",\"ruleIdx\":2,\"s_dow\":4,\"s_mod\":330,\"e_dow\":4,\"e_mod\":390},{\"id\":88,\"start\":\"2018-01-04 06:30:00\",\"end\":\"2018-01-04 08:00:00\",\"ruleIdx\":3,\"s_dow\":4,\"s_mod\":390,\"e_dow\":4,\"e_mod\":480},{\"id\":89,\"start\":\"2018-01-04 08:00:00\",\"end\":\"2018-01-04 17:00:00\",\"ruleIdx\":2,\"s_dow\":4,\"s_mod\":480,\"e_dow\":4,\"e_mod\":1020},{\"id\":90,\"start\":\"2018-01-04 17:00:00\",\"end\":\"2018-01-04 20:00:00\",\"ruleIdx\":3,\"s_dow\":4,\"s_mod\":1020,\"e_dow\":4,\"e_mod\":1200},{\"id\":91,\"start\":\"2018-01-04 22:00:00\",\"end\":\"2018-01-04 23:55:00\",\"ruleIdx\":1,\"s_dow\":4,\"s_mod\":1320,\"e_dow\":4,\"e_mod\":1435},{\"id\":92,\"start\":\"2018-01-05 20:00:00\",\"end\":\"2018-01-05 22:00:00\",\"ruleIdx\":4,\"s_dow\":5,\"s_mod\":1200,\"e_dow\":5,\"e_mod\":1320},{\"id\":93,\"start\":\"2018-01-05 00:00:00\",\"end\":\"2018-01-05 05:30:00\",\"ruleIdx\":1,\"s_dow\":5,\"s_mod\":0,\"e_dow\":5,\"e_mod\":330},{\"id\":94,\"start\":\"2018-01-05 05:30:00\",\"end\":\"2018-01-05 06:30:00\",\"ruleIdx\":2,\"s_dow\":5,\"s_mod\":330,\"e_dow\":5,\"e_mod\":390},{\"id\":95,\"start\":\"2018-01-05 06:30:00\",\"end\":\"2018-01-05 08:00:00\",\"ruleIdx\":3,\"s_dow\":5,\"s_mod\":390,\"e_dow\":5,\"e_mod\":480},{\"id\":96,\"start\":\"2018-01-05 08:00:00\",\"end\":\"2018-01-05 17:00:00\",\"ruleIdx\":2,\"s_dow\":5,\"s_mod\":480,\"e_dow\":5,\"e_mod\":1020},{\"id\":97,\"start\":\"2018-01-05 17:00:00\",\"end\":\"2018-01-05 20:00:00\",\"ruleIdx\":3,\"s_dow\":5,\"s_mod\":1020,\"e_dow\":5,\"e_mod\":1200},{\"id\":98,\"start\":\"2018-01-05 22:00:00\",\"end\":\"2018-01-05 23:55:00\",\"ruleIdx\":1,\"s_dow\":5,\"s_mod\":1320,\"e_dow\":5,\"e_mod\":1435},{\"id\":99,\"start\":\"2018-01-06 20:00:00\",\"end\":\"2018-01-06 22:00:00\",\"ruleIdx\":4,\"s_dow\":6,\"s_mod\":1200,\"e_dow\":6,\"e_mod\":1320},{\"id\":100,\"start\":\"2018-01-06 00:00:00\",\"end\":\"2018-01-06 05:30:00\",\"ruleIdx\":1,\"s_dow\":6,\"s_mod\":0,\"e_dow\":6,\"e_mod\":330},{\"id\":101,\"start\":\"2018-01-06 05:30:00\",\"end\":\"2018-01-06 06:30:00\",\"ruleIdx\":2,\"s_dow\":6,\"s_mod\":330,\"e_dow\":6,\"e_mod\":390},{\"id\":102,\"start\":\"2018-01-06 06:30:00\",\"end\":\"2018-01-06 08:00:00\",\"ruleIdx\":3,\"s_dow\":6,\"s_mod\":390,\"e_dow\":6,\"e_mod\":480},{\"id\":103,\"start\":\"2018-01-06 08:00:00\",\"end\":\"2018-01-06 17:00:00\",\"ruleIdx\":2,\"s_dow\":6,\"s_mod\":480,\"e_dow\":6,\"e_mod\":1020},{\"id\":104,\"start\":\"2018-01-06 17:00:00\",\"end\":\"2018-01-06 20:00:00\",\"ruleIdx\":3,\"s_dow\":6,\"s_mod\":1020,\"e_dow\":6,\"e_mod\":1200},{\"id\":105,\"start\":\"2018-01-06 22:00:00\",\"end\":\"2018-01-06 23:55:00\",\"ruleIdx\":1,\"s_dow\":6,\"s_mod\":1320,\"e_dow\":6,\"e_mod\":1435},{\"id\":112,\"start\":\"2018-01-07 22:00:00\",\"end\":\"2018-01-07 23:55:00\",\"ruleIdx\":1,\"s_dow\":7,\"s_mod\":1320,\"e_dow\":7,\"e_mod\":1435}]},{\"name\":\"New schedule 2\",\"idx\":2,\"events\":[{\"id\":1,\"start\":\"2018-01-01T04:35:00+01:00\",\"end\":\"2018-01-01T08:00:00+01:00\",\"ruleIdx\":1,\"s_dow\":1,\"s_mod\":275,\"e_dow\":1,\"e_mod\":480}]}]",
+        "schedules": "[{\"name\":\"New schedule 1\",\"idx\":1,\"events\":[{\"id\":1,\"start\":\"2018-01-02T17:35:00+01:00\",\"end\":\"2018-01-02T20:10:00+01:00\",\"ruleIdx\":1,\"s_dow\":2,\"s_mod\":1055,\"e_dow\":2,\"e_mod\":1210},{\"id\":2,\"start\":\"2018-01-03T06:25:00+01:00\",\"end\":\"2018-01-03T07:30:00+01:00\",\"ruleIdx\":2,\"s_dow\":3,\"s_mod\":385,\"e_dow\":3,\"e_mod\":450},{\"id\":3,\"start\":\"2018-01-03T07:30:00+01:00\",\"end\":\"2018-01-03T09:15:00+01:00\",\"ruleIdx\":1,\"s_dow\":3,\"s_mod\":450,\"e_dow\":3,\"e_mod\":555}]}]",
+        "activScheduleId": "1",
         "triggerMode": "triggerMode.statechange.startup",
         "topic": "",
-        "defaultSp": "18",
+        "defaultSp": "5",
         "allowOverride": false,
-        "override": "auto",
+        "executionMode": "auto",
         "overrideDuration": "120",
         "overrideTs": "5",
-        "overrideSp": "18",
+        "overrideSp": "0",
         "settingChanged": "1",
-        "uniqueId": "Salon_sched_test",
+        "uniqueId": "SmartScheduler_1a",
+        "cycleDuration": "1",
         "debugInfo": true,
-        "x": 300,
-        "y": 600,
+        "x": 280,
+        "y": 220,
         "wires": [
             [
-                "999e7620e32d378e"
+                "af66afc783ade803",
+                "7d79b602369e7217"
             ]
         ]
     },
     {
-        "id": "1822e8a9479dc72f",
+        "id": "af66afc783ade803",
         "type": "smart-valve",
-        "z": "5585941507ec4a06",
+        "z": "d67a51a664ff0117",
         "name": "SV_SALON",
         "topic": "SV_SALON",
         "tempEntity": "sensor.th_salon_temperature",
@@ -238,188 +80,157 @@
         "adjustThreshold": "1",
         "debugInfo": true,
         "allowOverride": false,
-        "x": 650,
-        "y": 600,
+        "x": 490,
+        "y": 220,
         "wires": [
             [
-                "df71c2484eb9d6b8"
+                "9696dda20b364a27"
             ],
             [
-                "748dcff75d7c49c1",
-                "71f5c3f1f1fc1dfa"
+                "27ba37c95ef1cc48"
             ]
         ]
     },
     {
-        "id": "df71c2484eb9d6b8",
+        "id": "9696dda20b364a27",
         "type": "link out",
-        "z": "5585941507ec4a06",
+        "z": "d67a51a664ff0117",
         "name": "TO_HA_SERVICE",
         "mode": "link",
         "links": [
-            "49d41944b81dbf96",
-            "57519b084d136298"
+            "84738a4cc419c7d2"
         ],
-        "x": 805,
-        "y": 580,
+        "x": 665,
+        "y": 200,
         "wires": []
     },
     {
-        "id": "748dcff75d7c49c1",
+        "id": "27ba37c95ef1cc48",
         "type": "link out",
-        "z": "5585941507ec4a06",
+        "z": "d67a51a664ff0117",
         "name": "TO_BOILER",
         "mode": "link",
         "links": [
-            "ff87827085c8486b",
-            "2c10d69eb92e8ae0"
+            "906942fe37ddc265"
         ],
-        "x": 805,
-        "y": 620,
+        "x": 665,
+        "y": 240,
         "wires": []
     },
     {
-        "id": "c9dc2a494d588667",
-        "type": "inject",
-        "z": "5585941507ec4a06",
-        "name": "SP 20",
-        "props": [
-            {
-                "p": "payload"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
+        "id": "69b03f35d131019b",
+        "type": "smart-boiler",
+        "z": "d67a51a664ff0117",
+        "name": "SMART-BOILER",
         "topic": "",
-        "payload": "{\"domain\":\"climate\",\"service\":\"set_temperature\",\"target\":{\"entity_id\":[\"climate.valve_salon_passerelle\"]},\"data\":{\"temperature\":20}}",
-        "payloadType": "json",
-        "x": 230,
-        "y": 680,
+        "mqttSettings": "9558ddab67e94202",
+        "boilerTempTopic": "homeassistant/opentherm-thermostat/current-temperature/set",
+        "boilerSpTopic": "homeassistant/opentherm-thermostat/setpoint-temperature/set",
+        "boilerLeadingDeviceTopic": "homeassistant/opentherm-thermostat/leading_device/state",
+        "mqttUpdates": true,
+        "debugInfo": true,
+        "boilerSecurity": true,
+        "cycleDuration": "120",
+        "outputUpdates": true,
+        "defaultSp": "7",
+        "defaultTemp": "10",
+        "maxDurationSinceLastInput": "15",
+        "x": 840,
+        "y": 200,
         "wires": [
             [
-                "cca84b8e38d4260c"
+                "40eeb7bb6d796d5a"
             ]
         ]
     },
     {
-        "id": "cca84b8e38d4260c",
-        "type": "link out",
-        "z": "5585941507ec4a06",
-        "name": "TO_HA_SERVICE",
-        "mode": "link",
-        "links": [
-            "57519b084d136298"
-        ],
-        "x": 375,
-        "y": 740,
-        "wires": []
-    },
-    {
-        "id": "b5426378c066537b",
-        "type": "inject",
-        "z": "5585941507ec4a06",
-        "name": "SP 21",
-        "props": [
-            {
-                "p": "payload"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "{\"domain\":\"climate\",\"service\":\"set_temperature\",\"target\":{\"entity_id\":[\"climate.valve_salon_passerelle\"]},\"data\":{\"temperature\":21}}",
-        "payloadType": "json",
-        "x": 230,
-        "y": 720,
-        "wires": [
-            [
-                "cca84b8e38d4260c"
-            ]
-        ]
-    },
-    {
-        "id": "cbac222029860227",
-        "type": "inject",
-        "z": "5585941507ec4a06",
-        "name": "SP 22",
-        "props": [
-            {
-                "p": "payload"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "{\"domain\":\"climate\",\"service\":\"set_temperature\",\"target\":{\"entity_id\":[\"climate.valve_salon_passerelle\"]},\"data\":{\"temperature\":22}}",
-        "payloadType": "json",
-        "x": 230,
-        "y": 760,
-        "wires": [
-            [
-                "cca84b8e38d4260c"
-            ]
-        ]
-    },
-    {
-        "id": "fccf097fa1eba57d",
-        "type": "inject",
-        "z": "5585941507ec4a06",
-        "name": "SP 23",
-        "props": [
-            {
-                "p": "payload"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "{\"domain\":\"climate\",\"service\":\"set_temperature\",\"target\":{\"entity_id\":[\"climate.valve_salon_passerelle\"]},\"data\":{\"temperature\":23}}",
-        "payloadType": "json",
-        "x": 230,
-        "y": 800,
-        "wires": [
-            [
-                "cca84b8e38d4260c"
-            ]
-        ]
-    },
-    {
-        "id": "03672e39ea38e750",
-        "type": "inject",
-        "z": "5585941507ec4a06",
-        "name": "Mode Auto",
-        "props": [
-            {
-                "p": "payload"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "auto",
-        "payloadType": "str",
-        "x": 100,
-        "y": 600,
-        "wires": [
-            [
-                "71f5c3f1f1fc1dfa"
-            ]
-        ]
-    },
-    {
-        "id": "97f80b5c673d66dd",
+        "id": "40eeb7bb6d796d5a",
         "type": "debug",
-        "z": "5585941507ec4a06",
+        "z": "d67a51a664ff0117",
+        "name": "DEBUG_BOILER",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1050,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "6ebc583888ea0866",
+        "type": "api-call-service",
+        "z": "d67a51a664ff0117",
+        "name": "HA Service",
+        "server": "2ea59f8981c891f6",
+        "version": 5,
+        "debugenabled": false,
+        "domain": "",
+        "service": "",
+        "areaId": [],
+        "deviceId": [],
+        "entityId": [],
+        "data": "",
+        "dataType": "jsonata",
+        "mergeContext": "",
+        "mustacheAltTags": false,
+        "outputProperties": [],
+        "queue": "none",
+        "x": 810,
+        "y": 300,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "84738a4cc419c7d2",
+        "type": "link in",
+        "z": "d67a51a664ff0117",
+        "name": "HA_SERVICE_IN",
+        "links": [
+            "1446e94e7f8144ba",
+            "187ad93373663e5c",
+            "6029ab088e5950b5",
+            "6fc891bedd3ceacb",
+            "7e9444962225d7a3",
+            "9696dda20b364a27",
+            "acbbc2b3d7fd13b5",
+            "cf312c909edd116b",
+            "cf48cc21938965e7"
+        ],
+        "x": 695,
+        "y": 320,
+        "wires": [
+            [
+                "6ebc583888ea0866",
+                "d01136368d408ac1"
+            ]
+        ]
+    },
+    {
+        "id": "7d79b602369e7217",
+        "type": "debug",
+        "z": "d67a51a664ff0117",
+        "name": "DEBUG_SCHED",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 480,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "d01136368d408ac1",
+        "type": "debug",
+        "z": "d67a51a664ff0117",
         "name": "DEBUG_HA_SERVICE",
         "active": true,
         "tosidebar": true,
@@ -430,8 +241,49 @@
         "statusVal": "",
         "statusType": "auto",
         "x": 840,
-        "y": 800,
+        "y": 360,
         "wires": []
+    },
+    {
+        "id": "906942fe37ddc265",
+        "type": "link in",
+        "z": "d67a51a664ff0117",
+        "name": "BOILER_IN",
+        "links": [
+            "0d0c0b35d815784f",
+            "27ba37c95ef1cc48",
+            "3cf1abba8a26c96c",
+            "ad83e89ce032787b",
+            "b07ad4053b087a11",
+            "e72553365da9133b"
+        ],
+        "x": 715,
+        "y": 200,
+        "wires": [
+            [
+                "69b03f35d131019b"
+            ]
+        ]
+    },
+    {
+        "id": "2b95657f9aa8d5b2",
+        "type": "smart-scheduler-settings",
+        "name": "my settings",
+        "mqttHost": "localhost",
+        "mqttPort": "1883",
+        "mqttUser": "mqtt_user",
+        "mqttPassword": "",
+        "mqttRootPath": "homeassistant"
+    },
+    {
+        "id": "9558ddab67e94202",
+        "type": "smart-boiler-settings",
+        "name": "my settings",
+        "mqttHost": "localhost",
+        "mqttPort": "1883",
+        "mqttUser": "mqtt_user",
+        "mqttPassword": "",
+        "mqttRootPath": "homeassistant"
     },
     {
         "id": "2ea59f8981c891f6",
