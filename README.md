@@ -125,6 +125,37 @@ The name of the device in Home Assistant is the name of the node in the setting.
 
 <img src="https://github.com/vibr77/node-red-smart-scheduler/blob/main/doc/img/ha_ss.png?raw=true" width=450>
 
+#### MQTT Topics
+
+| Entities | Type |  Description  | topic  |
+|:----------|:----------|:----------|:----------|
+| Mode | Advertise | Execution Mode | [MQTT_PREFIX/select/[UniqueId]/mode/config ]|
+| Mode | Set | Execution Mode | [MQTT_PREFIX/[UniqueId]/mode/set ]|
+| Mode | State | Execution Mode | [MQTT_PREFIX/[UniqueId]/mode/state ]|
+
+| Schedule List | Advertise | Dropdown list of schedules | [MQTT_PREFIX/select/[UniqueId]/schedule_list/config ]|
+| Schedule List | Set | Dropdown list of schedules | [MQTT_PREFIX/[UniqueId]/schedule_list/set ]|
+| Schedule List | State | Dropdown list of schedules | [MQTT_PREFIX/[UniqueId]/schedule_list/state ]|
+
+| setpoint | Advertise | Current setpoint | [MQTT_PREFIX/sensor/[UniqueId]/current_sp/config ]|
+| setpoint | Set | Current setpoint | [MQTT_PREFIX/[UniqueId]/current_sp/set ]|
+| setpoint  | State | Current setpoint| [MQTT_PREFIX/[UniqueId]/current_sp/state ]|
+
+| Previous setpoint | Advertise | Previous setpoint | [MQTT_PREFIX/sensor/[UniqueId]/previous_sp/config ]|
+| Previous setpoint | Set | Previous setpoint | [MQTT_PREFIX/[UniqueId]/previous_sp/set ]|
+| Previous setpoint  | State | Previous setpoint | [MQTT_PREFIX/[UniqueId]/previous_sp/state ]|
+
+| Event name | Advertise | Current event name | [MQTT_PREFIX/sensor/[UniqueId]/current_event_name/config ]|
+| Event name  | State | Current event name | [MQTT_PREFIX/[UniqueId]/current_event_name/state ]|
+
+| Event start | Advertise | Current event start time | [MQTT_PREFIX/sensor/[UniqueId]/current_event_start/config ]|
+| Event start  | State | Current event start time | [MQTT_PREFIX/[UniqueId]/current_event_start/state ]|
+
+| Event end | Advertise | Current event end time | [MQTT_PREFIX/sensor/[UniqueId]/current_event_end/config ]|
+| Event end  | State |Current event end time | [MQTT_PREFIX/[UniqueId]/current_event_end/state ]|
+
+
+schedule_list
 
 If you like my work, please support me
 
