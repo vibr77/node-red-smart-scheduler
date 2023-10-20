@@ -82,6 +82,9 @@ module.exports = function(RED) {
         this.adv_current_sp_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/current_sp/config";
         this.state_current_sp_topic=this.mqttPrefix+"/"+node.uniqueId+"/current_sp/state";
 
+        this.adv_override_duration_left_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/duration_left/config";
+        this.state_override_duration_left_topic=this.mqttPrefix+"/"+node.uniqueId+"/duration_left/state";
+
         this.adv_previous_sp_topic=this.mqttPrefix+"/sensor/"+node.uniqueId+"/previous_sp/config";
         this.state_previous_sp_topic=this.mqttPrefix+"/"+node.uniqueId+"/previous_sp/state";
 
@@ -98,7 +101,7 @@ module.exports = function(RED) {
         this.state_schedule_list_topic=this.mqttPrefix+"/"+node.uniqueId+"/schedule_list/state";
         this.set_schedule_list_topic=this.mqttPrefix+"/"+node.uniqueId+"/schedule_list/set";
 
-        //pjson.version
+        
         this.ev=function(){
             node.manualTrigger=true;
             evaluate();
@@ -171,7 +174,7 @@ module.exports = function(RED) {
                 }
 
                 if (node.mqttclient!=null && node.mqttstack.length<100){
-                    let mqttmsg={topic:node.state_mode_topic,payload:{value:"Override"},qos:0,retain:false};
+                    let mqttmsg={topic:node.state_mode_topic,payload:{value:"manual"},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
                     mqttmsg={topic:node.state_current_sp_topic,payload:{value:node.overrideSp},qos:0,retain:false};
@@ -189,13 +192,16 @@ module.exports = function(RED) {
                     mqttmsg={topic:node.state_current_event_end_topic,payload:{value:"-"},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
+                    mqttmsg={topic:node.state_override_duration_left_topic,payload:{value:diff},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+                
                     sendMqtt();
                 }
 
                 node.status({
                     fill:  'yellow',
                     shape: 'dot',
-                    text:("executionMode sp "+node.overrideSp+" °C, "+diff+" min left")
+                    text:("manual sp "+node.overrideSp+" °C, "+diff+" min left")
                 });   
 
             }else if (matchingEvent.ruleIdx==-1){
@@ -215,6 +221,9 @@ module.exports = function(RED) {
                     node.mqttstack.push(mqttmsg);
 
                     mqttmsg={topic:node.state_current_event_end_topic,payload:{value:"-"},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_override_duration_left_topic,payload:{value:0},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
                     sendMqtt();
@@ -291,6 +300,9 @@ module.exports = function(RED) {
                     node.mqttstack.push(mqttmsg);
 
                     mqttmsg={topic:node.state_current_event_end_topic,payload:{value:d_e},qos:0,retain:false};
+                    node.mqttstack.push(mqttmsg);
+
+                    mqttmsg={topic:node.state_override_duration_left_topic,payload:{value:0},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
                     sendMqtt();
@@ -429,6 +441,21 @@ module.exports = function(RED) {
             node.mqttstack.push(mqttmsg);
 
             msg.payload={
+                name:"Duration left",
+                uniq_id:node.uniqueId+"MD",
+                icon:"mdi:clock-time-eight-outline",
+                qos:0,
+                retain:true,
+                state_topic:node.state_override_duration_left_topic,
+                unit_of_measurement:"min",
+                value_template:"{{value_json.value}}",
+                dev:node.dev 
+            }
+
+            mqttmsg={topic:node.adv_override_duration_left_topic,payload:msg.payload,qos:msg.payload.qos,retain:msg.payload.retain};
+            node.mqttstack.push(mqttmsg);
+
+            msg.payload={
                 name:"Current event",
                 uniq_id:node.uniqueId+"EVNAME",
                 icon:"mdi:calendar-text-outline",
@@ -505,8 +532,7 @@ module.exports = function(RED) {
         }
 
         node.on('input', function(msg) {
-            node.log("msg:"+JSON.stringify(msg));
-            //msg.payload = msg.payload.toString() // Make sure we have a string.
+           
             if (msg===undefined || msg.payload===undefined){
                 node.warn("invalid msg in input");
             }
@@ -517,8 +543,6 @@ module.exports = function(RED) {
                 if (command == '1' || command == 'trigger' || command== 'on'){
                     node.manualTrigger = true;
                 }
-
-
 
                 if (command=="auto"){
                     node.executionMode="auto";
@@ -577,7 +601,6 @@ module.exports = function(RED) {
                         nlog("noout==true");
                     }
 
-                    //node.log(msg);
                 }
                 
                 evaluate();
