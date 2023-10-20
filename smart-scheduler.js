@@ -67,10 +67,10 @@ module.exports = function(RED) {
         if ( this.mqttSettings?.mqttHost);
             node.log(this.mqttSettings?.mqttHost);
         
-            // START OF MQTT
-       if (this.mqttPrefix && this.mqttSettings.mqttRootPath)
+         // START OF MQTT
+        if (this.mqttPrefix && this.mqttSettings.mqttRootPath)
             this.mqttPrefix=this.mqttSettings.mqttRootPath
-       else 
+        else 
             this.mqttPrefix="homeassistant";
         
         this.uniqueId=n.uniqueId ? n.uniqueId : "SmartScheduler_1";
@@ -705,16 +705,17 @@ module.exports = function(RED) {
                     return;
                 }
 
-                node.log('MQTT dequeueing'); 
+                nlog('MQTT dequeueing'); 
 
                 let msg=node.mqttstack.shift();
                 
                 while (msg!==undefined){
-                    let msgstr=JSON.stringify(msg.payload);
+                   
                     if (msg.topic===undefined || msg.payload===undefined)
                         return;
- 
-                    node.mqttclient.publish(msg.topic.toString(),JSON.stringify(msg.payload),{ qos: msg.qos, retain: msg.retain },(error) => {
+
+                    let msgstr=JSON.stringify(msg.payload).replace(/\\"/g, '"');
+                    node.mqttclient.publish(msg.topic.toString(),msgstr,{ qos: msg.qos, retain: msg.retain },(error) => {
                         if (error) {
                             node.error(error)
                         }
