@@ -53,6 +53,7 @@ module.exports = function(RED) {
          
         this.firstEval = true                                                   // First iteration loop evaluation
         this.manualTrigger = false;                                             // Manual trigger flag from the input
+        this.endOfOverride=false;                                               // Trigger after override period end
     
         this.debugInfo=n.debugInfo? n.debugInfo :false;                         // Flag to send message to the console
         this.noout=false;
@@ -515,6 +516,8 @@ module.exports = function(RED) {
                     node.executionMode='auto';
                     nlog("   exceed OverrideDuration");
                     nlog("   executionMode=manual->auto");
+                    node.noout=false;
+                    node.endOfOverride=true;
                 }
             }
             let s=node.schedules.find(({idx}) => parseInt(idx)==parseInt(node.activScheduleId));
