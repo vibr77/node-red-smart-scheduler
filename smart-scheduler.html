@@ -531,7 +531,7 @@
                     $('<button type="button" id="cc_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="cc_btn red-ui-button red-ui-button"  style="margin-left: 5px !important; height: 32px !important;">&nbsp;&nbsp;&nbsp;</button>').appendTo(row1);
                     
                     //$('<button type="button" id="sched_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="red-ui-button toggle my-button-group"></button>').appendTo(sched_btn_grp);
-                    $('<button type="button" id="sched_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" class="red-ui-button toggle my-button-group"></button>').insertBefore($('#sched_btn_del'));
+                    $('<button type="button" id="sched_btn_'+rule.ruleIdx+'" idx="'+rule.ruleIdx+'" style="border-color:'+ rule.setColor+';border-width:5px"  class="red-ui-button toggle my-button-group"></button>').insertBefore($('#sched_btn_del'));
                     
                     
                     container[0].appendChild(fragment);
@@ -689,6 +689,8 @@
 
     },
     oneditresize: function() {
+        var node = this;
+        node.calendar.render();
     }
   });
 
@@ -793,7 +795,7 @@
           }
 
         </style>
-        <div id="calendar" style="width: 550px; border: 1px solid grey"></div>
+        <div id="calendar" style="border: 1px solid grey"></div>
         <div class="form-row">      
           <p style="padding-top: 10px"></p>
         </div>
