@@ -754,7 +754,7 @@ module.exports = function(RED) {
         
 
         node.on('close', function() {
-            nlog("closing connexion");
+            nlog("closing mqtt connexion");
             node.log('MQTT disconnecting');
             clearInterval(node.evalInterval);
             node.mqttclient.end();
