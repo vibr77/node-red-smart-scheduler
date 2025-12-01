@@ -1,10 +1,10 @@
 
 /*
 __   _____ ___ ___        Author: Vincent BESSON
- \ \ / /_ _| _ ) _ \      Release: 0.66
+ \ \ / /_ _| _ ) _ \      Release: 0.67
   \ V / | || _ \   /      Date: 20230930
    \_/ |___|___/_|_\      Description: Nodered Heating Scheduler
-                2023      Licence: Creative Commons
+                2025      Licence: Creative Commons
 ______________________
 */ 
 
@@ -19,28 +19,33 @@ TODO:
 
 var moment = require('moment'); // require
 const mqtt = require("mqtt");
-var pjson = require('./package.json');
+const pjson = require('./package.json');
 
 module.exports = function(RED) {
     'use strict'
-    var path = require('path')
-    var util = require('util')
-    var scheduler = require('./lib/scheduler.js')
+    const scheduler = require('./lib/scheduler.js')
  
-    var SmartScheduler = function(n) {
+    function SmartScheduler(n) {
         RED.nodes.createNode(this, n)
        
-        this.topic = n.topic
+        
    
         this.name=n.name ? n.name : "smartscheduler";
         this.triggerMode = n.triggerMode ? n.triggerMode : 'trigger.statechange.startup'
-        this.schedules = n.schedules ? n.schedules : "[]";
-        this.schedules=JSON.parse(n.schedules);                                 // JSON of the node schedules and schedules.event
+        
+        try {
+            this.schedules = n.schedules ? JSON.parse(n.schedules) : [];
+        } catch (e) {
+            this.schedules = [];
+            this.error("Error parsing schedules JSON: " + e.message);
+            node.error("Error parsing schedules JSON: " + e.message);
+        }
+
         this.rules=n.rules;  
         this.activScheduleId=n.activScheduleId;                                 // ID of the active schedule
         this.defaultSp=n.defaultSp ?  n.defaultSp : '5'                         // When no event, out put the default sp 
         this.allowOverride=n.allowOverride ? n.allowOverride :false;
-        this.executionMode = n.executionMode ? n.executionMode : 'auto'                        // Current execution mode
+        this.executionMode = n.executionMode ? n.executionMode : 'auto'         // Current execution mode
         this.overrideTs= n.overrideTs ? n.overrideTs : '0'                      // Timestamp of override mode start 
         this.overrideDuration=n.overrideDuration ? n.overrideDuration :"120"    // Duration of the override periode (set in setting)
         this.overrideSp=n.overrideSp ? n.overrideSp : "5"                       // Override set point by default
@@ -60,12 +65,11 @@ module.exports = function(RED) {
         this.mqttclient=null;
         this.mqttstack=[];
         
-        var node = this;
+        const node = this;
 
         this.mqttSettings = RED.nodes.getNode(n.mqttSettings);
        
-
-        if ( this.mqttSettings?.mqttHost);
+        if ( this.mqttSettings?.mqttHost)
             node.log(this.mqttSettings?.mqttHost);
         
          // START OF MQTT
@@ -102,6 +106,7 @@ module.exports = function(RED) {
         this.state_schedule_list_topic=this.mqttPrefix+"/"+node.uniqueId+"/schedule_list/state";
         this.set_schedule_list_topic=this.mqttPrefix+"/"+node.uniqueId+"/schedule_list/set";
 
+        node.warn("Smart-Scheduler node started, name:"+node.name+", uniqueId:"+node.uniqueId);
         
         this.ev=function(){
             node.manualTrigger=true;
@@ -142,7 +147,7 @@ module.exports = function(RED) {
                 });
                 return;
 
-            }else if (node.executionMode=="manual"){
+            }else if (node.executionMode=="manual"){                                            // Manual Execution
                 nlog("node.executionMode==manual");
                 
                 let ovrM=moment(node.overrideTs).add(node.overrideDuration,"m")
@@ -155,7 +160,6 @@ module.exports = function(RED) {
                     hasSpchanged=true;
                 
                 msg.payload={
-                    topic: node.topic,
                     command:"set",
                     setpoint:parseFloat(node.overrideSp),
                     previous_setpoint:parseFloat(node.prevSp),
@@ -205,8 +209,8 @@ module.exports = function(RED) {
                     text:("manual sp "+node.overrideSp+" °C, "+diff+" min left")
                 });   
 
-            }else if (matchingEvent.ruleIdx==-1){
-
+            }else if (matchingEvent.ruleIdx==-1){                                               // No matching event found, output default sp
+                nlog("matchingEvent.ruleIdx==-1 no event matched, output default sp");
                 if (node.mqttclient!=null && node.mqttstack.length<100 ){
                     
                     let mqttmsg={topic:node.state_current_sp_topic,payload:{value:node.defaultSp},qos:0,retain:false};
@@ -235,9 +239,7 @@ module.exports = function(RED) {
                 if (parseFloat(node.activeSp)!=parseFloat(node.prevSp))
                     hasSpchanged=true;
                 
-                
                 msg.payload={
-                    topic: node.topic,
                     command:"set",
                     setpoint:parseFloat(node.defaultSp),
                     previous_setpoint:parseFloat(node.prevSp),
@@ -259,9 +261,14 @@ module.exports = function(RED) {
                     shape: 'ring',
                     text:("Default setpoint: "+node.defaultSp+" °C")
                 });
-            }else if (matchingEvent.ruleIdx>=0){
-                
-                nlog("matchingEvent.eventId:"+matchingEvent.eventId)
+
+            }else if (matchingEvent.ruleIdx>=0){                                                // Matching event found
+                nlog("matchingEvent.ruleIdx>=0 event matched");
+                node.prevRuleIdx=node.activeRuleIdx;
+                node.activeRuleIdx=parseInt(matchingEvent.ruleIdx);
+
+                nlog("matchingEvent.ruleIdx:"+matchingEvent.ruleIdx);
+                nlog("matchingEvent.eventId:"+matchingEvent.eventId);
                 var event=node.events.find((item) => parseInt(item.id)==parseInt(matchingEvent.eventId));
                 
                 var m_s=moment(event.start);
@@ -321,7 +328,6 @@ module.exports = function(RED) {
                     hasSpchanged=true;
 
                 msg.payload={
-                    topic:node.topic,
                     command:"set",
                     setpoint:parseFloat(r.spTemp),
                     previous_setpoint:parseFloat(node.prevSp),
@@ -350,8 +356,8 @@ module.exports = function(RED) {
             
             if (node.manualTrigger || 
                 node.triggerMode == 'triggerMode.minutely' || 
-                !isEqual(node.activeRuleIdx, node.prevRuleIdx) || 
-                !isEqual(node.activeSp, node.prevSp) || node.firstEval==true) {
+                node.activeRuleIdx !== node.prevRuleIdx || 
+                node.activeSp !== node.prevSp || node.firstEval==true) {
                                 
                 if (/*!node.firstEval &&*/ !node.noout){
                     node.send([msg,null]);
@@ -723,6 +729,7 @@ module.exports = function(RED) {
                 }
             })
         }
+
     
             function sendMqtt(){
 
@@ -740,7 +747,7 @@ module.exports = function(RED) {
                     if (msg.topic===undefined || msg.payload===undefined)
                         return;
 
-                    let msgstr=JSON.stringify(msg.payload).replace(/\\"/g, '"');
+                    let msgstr=JSON.stringify(msg.payload);
                     node.mqttclient.publish(msg.topic.toString(),msgstr,{ qos: msg.qos, retain: msg.retain },(error) => {
                         if (error) {
                             node.error(error)
@@ -753,13 +760,14 @@ module.exports = function(RED) {
 
         
 
-        node.on('close', function() {
+        node.on('close', function(done) {
             nlog("closing mqtt connexion");
             node.log('MQTT disconnecting');
             clearInterval(node.evalInterval);
-            node.mqttclient.end();
+            if (node.mqttclient) {
+                node.mqttclient.end();
+            }
             done();
-
         })
 
     }
@@ -767,7 +775,7 @@ module.exports = function(RED) {
     RED.nodes.registerType('smart-scheduler', SmartScheduler)
 
     RED.httpAdmin.post("/smartsched/:id", RED.auth.needsPermission("inject.write"), function(req,res) {
-        var node = RED.nodes.getNode(req.params.id);
+        const node = RED.nodes.getNode(req.params.id);
         if (node != null) {
             try {
                

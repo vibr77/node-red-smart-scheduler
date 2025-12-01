@@ -4,12 +4,12 @@
     var ctrl_i=0;
 
 
-    
 
     RED.nodes.registerType('smart-scheduler',{
         
         category: 'vib-node',
         color: '#bdeeff',
+        
         defaults: {
             mqttSettings: {value: "", type: "smart-scheduler-settings"},
             name: {value:"smart-scheduler"},
@@ -67,14 +67,24 @@
                 
                 return true
             }},
+            
             debugInfo:{value:false}
+            
         },
         inputs:1,
         outputs:1,
         icon: "font-awesome/fa-calendar",
         label: function() {
+
+            this.nlog=function(message){
+               // if (this.debugInfo){
+                    console.log("Smart-Scheduler["+this.name+"]:"+message);
+             //   }
+            }
+
             return this.name || "smart-scheduler";
         },
+        
         button: {
             
             onclick: function() {
@@ -85,7 +95,7 @@
                     data: JSON.stringify({payload:{command:"trigger"}}),
                     contentType: "application/json; charset=utf-8",
                     success: function (resp) {
-                        RED.notify(node._("smart-scheduler trigger sucess", { label: "ss" }), { type: "success", id: "inject", timeout: 2000 });
+                        RED.notify(node._("smart-scheduler trigger success", { label: "ss" }), { type: "success", id: "inject", timeout: 2000 });
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         if (jqXHR.status == 404) {
@@ -273,6 +283,7 @@
 
             var setup = function(node) {
 
+                node.nlog("start setup");
                 //$("#node-input-triggerMode").val(node.triggerMode ? node.triggerMode : 'triggerMode.statechange.startup'); 
                // $("#node-input-executionMode").val(node.override ? node.override : 'auto');        
                 
@@ -346,9 +357,12 @@
                         info.event.remove();
                     },
                     select: function(info) {
-                        
-                        if (node.activeSched===undefined || ctrl_i==-1)
-                            return;
+                        //node.nlog("select start:"+info.startStr+", end:"+info.endStr+ ", ctrl_i:"+ctrl_i);
+                        //console.log("select info:"+JSON.stringify(info));
+                        if (node.activeSched===undefined || ctrl_i==-1){
+                           node.nlog("select ignored, no active schedule or no rule selected");
+                           return;
+                        }
 
                         end=info.endStr;
                         start=info.startStr;
@@ -362,9 +376,21 @@
                         e_dow=m_e.day();
                         e_mod=m_e.hours()*60+m_e.minutes();
                         
-                        let r=node.rules.find(({ruleIdx}) => ruleIdx===ctrl_i)
-                        if (r===undefined)
+                        let r=node.rules.find(({ruleIdx}) => ruleIdx==ctrl_i)
+                        if (r===undefined){
+                            alert("Please select a set point before adding schedule events");
+                            console.log("err while finding rule for ruleIdx:"+ctrl_i);
+                            node.rules.forEach( rule => {
+                                node.nlog(" Available ruleIdx:"+rule.ruleIdx);
+                                if (parseInt(rule.ruleIdx)===parseInt(ctrl_i)){
+                                    node.nlog(" Found matching rule:"+JSON.stringify(rule));
+                                }   
+                            });
+
+                            node.nlog("r is undefined returning");
                             return;
+                        }
+                            
 
                         node.maxEventId++;
                         var eventData = {
@@ -453,6 +479,16 @@
                     $('#node-input-activeSchedule').append($('<option>', {value:node.maxSchedId, text:'New schedule '+node.maxSchedId}));
                     node.configuredSchedules.push({name:'New schedule '+node.maxSchedId,idx:node.maxSchedId,events:[]})
                     $("#node-input-activeSchedule").val(node.maxSchedId).change();
+
+                    node.activeSched = node.configuredSchedules[node.configuredSchedules.length - 1];
+                    $("#node-input-scheduleName").prop("disabled", false).val(node.activeSched.name);
+
+                    requestAnimationFrame(function () {
+                        if (node.calendar) {
+                            node.calendar.updateSize();
+                            node.calendar.render();
+                        }
+                    });
                 });
 
                 $("#node-input-deleteSchedule").on("click", function(event) { // Delete current schedule
@@ -496,20 +532,30 @@
                 removable: true,
                 sortable: true,
                 addItem: function(container,i,opt) {
-                    var rule = opt;
+                    let rule = opt;
                     
-                    if ( typeof opt == 'undefined' || Object.keys(opt).length==0){
-                        node.maxRuleId++;
+                    console.log("rule:"+JSON.stringify(rule));
+                    console.log("object.keys(opt).length:"+Object.keys(opt).length);
+                    let maxId=0;
+                    node.rules.forEach(function(r){
+                        if (parseInt(r.ruleIdx)>maxId)
+                            maxId=parseInt(r.ruleIdx);
+                    });
+                    node.maxRuleId=maxId+1;
+                    console.log("node.maxRuleId after calc:"+node.maxRuleId);
+   
+                    if ( typeof opt == 'undefined' ||   Object.keys(opt).length==0){
+                        rule.ruleIdx=node.maxId;
                         rule = {setName:"Heating "+node.maxRuleId,setColor:"#CCCCCC",spTemp:"19",ruleIdx:node.maxRuleId};
                         node.rules.push(rule);
-
+                        
                     }else{
                         if (rule.ruleIdx===undefined){
-                            node.maxRuleId++;
                             rule.ruleIdx=node.maxRuleId;
+                            console.log("ruleIdx undefined, set to maxRuleId:"+node.maxRuleId);
                         }
-                        node.isMaxRuleId(parseInt(rule.ruleIdx));
                     }
+                    
 
                     $(container).data('data',i);
                     let fragment = document.createDocumentFragment();
@@ -547,13 +593,15 @@
                     
                     $("#cc_btn_"+rule.ruleIdx).on('click',function(event) {
                         favDialog.showModal();
+                        
                         ctrl_i=$(event.target).attr('idx')
-                       
+                        console.log("cc_btn_ click ctrl_i:"+ctrl_i);
                     });  
 
                     $('#node-input-set-name_'+rule.ruleIdx).keyup(function (event) {
                         
                         ctrl_i=$(event.target).attr('idx');
+                        console.log("set-name_ keyup ctrl_i:"+ctrl_i);
                        
                         $("#sched_btn_"+ctrl_i).html($('#node-input-set-name_'+ctrl_i).val());
      
@@ -566,9 +614,45 @@
                         ctrl_i=$(event.target).attr('idx');
                         node.rules.find(({ruleIdx}) => ruleIdx===ctrl_i).spTemp=$('#node-input-temp-sp_'+ctrl_i).val();  
                     });
+
+                    $(".my-button-group").off("click");
+                    $(".my-button-group").on("click", function(event) {
+                        $(".my-button-group").removeClass("selected");
+                        $(this).addClass("selected");
+                        console.log("here1");
+                        ctrl_i=$(event.target).attr('idx');
+                    });
+                    $(".my-button-group").removeClass("selected");
+                    $("#sched_btn_"+rule.ruleIdx).addClass("selected");
+                    ctrl_i=rule.ruleIdx;
+
                 },
                 removeItem:function(data) {
-                    $("#sched_btn_"+data).remove(); // -<<<<<<<-----------Strange to be reviewed
+                    // data is the index of the item to remove in the list not the ruleIdx
+                    // When removing we need to remove all events linked to this ruleIdx
+                    // for event in the calendar but also for all undispalyed schedules
+
+                    idx=node.rules[data].ruleIdx;
+                    node.rules.splice(data,1);
+                    $("#sched_btn_"+idx).remove();
+
+                    // Remove matching event from calendar
+                    node.calendar.getEvents().forEach(function(event) {
+                        if (event.extendedProps.ruleIdx==idx){
+                            event.remove();
+                            node.activeSched.events = node.activeSched.events.filter(function(e) {
+                                return event.id != e.id;
+                            });
+                        }
+                    });
+                    // Remove matching event from other schedules
+                    node.configuredSchedules.forEach(function(sched){
+                        sched.events = sched.events.filter(function(e) {
+                            return idx != e.ruleIdx;
+                        });
+                    });
+
+
                 },
                 resizeItem: function(row,index) {
                     var originalData = $(row).data('data');
@@ -580,7 +664,7 @@
             });
             
             if (!node.rules) {
-
+                console.log("No rules defined, add a default one");
                 var rule = {
                     setName:"Confort",
                     setColor:"#CCCCCC",
@@ -589,6 +673,7 @@
                 };
 
                 node.rules = [rule];
+                //node.maxRuleId=0;
             }
             $('<button type="button" id="sched_btn_del" idx="-1" class="red-ui-button toggle my-button-group"><i idx="-1" class="fa fa-trash-o  fa-2"></i></button>').appendTo(sched_btn_grp);
             
@@ -597,10 +682,12 @@
             });
             
             $(".my-button-group").on("click", function(event) {
-                        $(".my-button-group").removeClass("selected");
-                        $(this).addClass("selected");
-                        ctrl_i=$(event.target).attr('idx');
-                    });
+                $(".my-button-group").removeClass("selected");
+                $(this).addClass("selected");
+                console.log("here1");
+                ctrl_i=$(event.target).attr('idx');
+                //console.log("my-button-group ctrl_i:"+ctrl_i);
+            });
 
             $("#node-input-CloneDay").on("click", function(event) {
                 let src=parseInt($("#node-input-cc-src").find(":selected").val());
@@ -704,17 +791,12 @@
     </div>
 
     <div class="form-row">
-        <label for="node-input-topic"><i class="fa fa-tasks"></i> Topic</label>
-        <input type="text" title="msg output topic"  id="node-input-topic" placeholder="Topic"></input>
-    </div>
-
-    <div class="form-row">
         <label for="node-input-topic"><i class="fa fa-tasks"></i> UniqueId</label>
         <input type="text" title="Unique id used for home assistant, has to be unique" id="node-input-uniqueId" placeholder="uniqueId"></input>
     </div>
 
     <div class="form-row">
-        <label for="node-input-defaultSp"><i class="fa fa-tasks"></i><b> Set point</b></label>
+        <label for="node-input-defaultSp"><i class="fa fa-tasks"></i> Set point</label>
         <input type="text" title="set point temperature when no schedule event found" id="node-input-defaultSp" style="width:60px !important; text-align: right;" placeholder="temp"></input>
         <label for="node-input-defaultSp"> °C (default)</label> 
     </div>
@@ -724,14 +806,10 @@
         <input type="text" id="node-input-mqttSettings"></input>
     </div>
 
-    <div class="form-row">
-        <label for="node-input-activeSchedule"><i class="fa fa-calendar"></i><b> Schedule</b></label>
-        <select id="node-input-activeSchedule"></select>
-        <a id="node-input-addSchedule" title="Add new schedule" class="red-ui-button"><i class="fa fa-calendar-plus-o fa-2"></i></a>
-    </div>
+    
 
     <div class="form-row" style="margin-bottom:0;">
-        <label><i class="fa fa-list"></i> <span data-i18n="change.label.rules"><b> Rules</b></span></label>
+        <label><i class="fa fa-list"></i> <span data-i18n="change.label.rules"><b>Set points</b></span></label>
         <dialog id="ColorPickerDialog"  style="width: 300px; height:320px" closed>
             <div id="colorPicker"></div>
             <form method="dialog">
@@ -745,8 +823,10 @@
         <ol id="node-input-rule-container"></ol>
     </div>
 
-    <div class="form-row">      
-        <p style="padding-top: 10px"><i class="fa fa-calendar"></i><b> Schedule</b></p> 
+   <div class="form-row">
+        <label for="node-input-activeSchedule"><i class="fa fa-calendar"></i><b> Schedules</b></label>
+        <select id="node-input-activeSchedule"></select>
+        <a id="node-input-addSchedule" title="Add new schedule" class="red-ui-button"><i class="fa fa-calendar-plus-o fa-2"></i></a>
     </div>
 
     <div class="form-row">      
