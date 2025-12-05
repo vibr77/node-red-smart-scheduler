@@ -14,6 +14,41 @@
     },
     oneditprepare: function () {
       var node = this
+       $("#node-config-input-test-connection").on("click", function(e) {
+          e.preventDefault();
+          var host = $("#node-config-input-mqttHost").val();
+          var port = $("#node-config-input-mqttPort").val();
+          var user = $("#node-config-input-mqttUser").val();
+          var password = $("#node-config-input-mqttPassword").val();
+          var rootPath = $("#node-config-input-mqttRootPath").val();
+          
+          $("#test-connection-result").html('<i class="fa fa-spinner fa-spin"></i> Testing...');
+          
+          $.ajax({
+              url: "smart-scheduler-settings/testConnection",
+              type: "POST",
+              data: JSON.stringify({
+                  mqttHost: host,
+                  mqttPort: port,
+                  mqttUser: user,
+                  mqttPassword: password,
+                  mqttRootPath: rootPath
+              }),
+              contentType: "application/json; charset=utf-8",
+              success: function (resp) {
+                  if (resp.status === "success") {
+                      $("#test-connection-result").html('<span style="color:green"><i class="fa fa-check"></i> ' + resp.message + '</span>');
+                  } else if (resp.status === "warning") {
+                      $("#test-connection-result").html('<span style="color:orange"><i class="fa fa-exclamation-triangle"></i> ' + resp.message + '</span>');
+                  } else {
+                      $("#test-connection-result").html('<span style="color:red"><i class="fa fa-times"></i> ' + resp.message + '</span>');
+                  }
+              },
+              error: function (jqXHR, textStatus, errorThrown) {
+                  $("#test-connection-result").html('<span style="color:red"><i class="fa fa-times"></i> Error: ' + textStatus + '</span>');
+              }
+          });
+      });
     },
     oneditsave: function () {
       var node = this
@@ -50,6 +85,10 @@
   <div class="form-row">
     <label for="node-config-input-mqttRootPath"><i class="icon-globe"></i> Root path</label>
     <input type="text" id="node-config-input-mqttRootPath">
+  </div>
+  <div class="form-row">
+      <a href="#" class="editor-button" id="node-config-input-test-connection" style="margin-top: 4px;"><i class="fa fa-refresh"></i> Test Connection</a>
+      <span id="test-connection-result" style="margin-left: 10px;"></span>
   </div>
 
 

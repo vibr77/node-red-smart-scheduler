@@ -68,7 +68,7 @@
                 return true
             }},
             
-            debugInfo:{value:false}
+            debugInfo:{value:"none"}
             
         },
         inputs:1,
@@ -806,8 +806,6 @@
         <input type="text" id="node-input-mqttSettings"></input>
     </div>
 
-    
-
     <div class="form-row" style="margin-bottom:0;">
         <label><i class="fa fa-list"></i> <span data-i18n="change.label.rules"><b>Set points</b></span></label>
         <dialog id="ColorPickerDialog"  style="width: 300px; height:320px" closed>
@@ -823,8 +821,11 @@
         <ol id="node-input-rule-container"></ol>
     </div>
 
-   <div class="form-row">
-        <label for="node-input-activeSchedule"><i class="fa fa-calendar"></i><b> Schedules</b></label>
+    <div class="form-row">
+        <label for="node-input-activeSchedule"><i class="fa fa-calendar"></i><b>Schedules</b></label>
+    </div>
+    <div class="form-row">
+        <label for="node-input-activeSchedule">Active</label>
         <select id="node-input-activeSchedule"></select>
         <a id="node-input-addSchedule" title="Add new schedule" class="red-ui-button"><i class="fa fa-calendar-plus-o fa-2"></i></a>
     </div>
@@ -923,12 +924,15 @@
         <label for="node-input-overrideDuration-2"> °C</label>
       </div>
     <div class="form-row">
-        <label style="width:120px !important;" for="node-input-debugInfo"><i class="fa fa-tasks"></i> <b> Debug</b></label>
+        <label for="node-input-debugInfo"><i class="fa fa-bug"></i> Debug Level</label>
+        <select id="node-input-debugInfo">
+            <option value="none">None</option>
+            <option value="error">Error</option>
+            <option value="warn">Warning</option>
+            <option value="info">Info</option>
+            <option value="debug">Debug</option>
+        </select>
     </div>
-     <div class="form-row">
-            <label style="width:120px !important;" for="node-input-debugInfo">info</label>
-     <input type="checkbox" title="send debug information to the console" id="node-input-debugInfo"  ></input>
-    </div> 
 </script>
 
 <script type="text/html" data-help-name="smart-scheduler">

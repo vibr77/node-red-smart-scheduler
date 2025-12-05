@@ -1,19 +1,28 @@
 
 /*
 __   _____ ___ ___        Author: Vincent BESSON
- \ \ / /_ _| _ ) _ \      Release: 0.67
-  \ V / | || _ \   /      Date: 20230930
+ \ \ / /_ _| _ ) _ \      Release: 0.80
+  \ V / | || _ \   /      Date: 20251201
    \_/ |___|___/_|_\      Description: Nodered Heating Scheduler
                 2025      Licence: Creative Commons
 ______________________
 */ 
 
+/* TEST Env
+npm install ./modulename (SmartValve / SmartBoiler / SmartSchedule)
+node-red -v -D logging.console.level=trace
+// Web http://localhost:1880/
+
+Deploy to npmjs
+npm publish
+
+*/
+
 /*
 TODO:
 -----
 
-+ When changing select param can not published
-+ HTML when adding a new zone it comes after the bin
++ Add local js lib for offline (calendat.js)
 */
 
 
@@ -28,8 +37,6 @@ module.exports = function(RED) {
     function SmartScheduler(n) {
         RED.nodes.createNode(this, n)
        
-        
-   
         this.name=n.name ? n.name : "smartscheduler";
         this.triggerMode = n.triggerMode ? n.triggerMode : 'trigger.statechange.startup'
         
@@ -37,7 +44,6 @@ module.exports = function(RED) {
             this.schedules = n.schedules ? JSON.parse(n.schedules) : [];
         } catch (e) {
             this.schedules = [];
-            this.error("Error parsing schedules JSON: " + e.message);
             node.error("Error parsing schedules JSON: " + e.message);
         }
 
@@ -60,7 +66,7 @@ module.exports = function(RED) {
         this.manualTrigger = false;                                             // Manual trigger flag from the input
         this.endOfOverride=false;                                               // Trigger after override period end
     
-        this.debugInfo=n.debugInfo? n.debugInfo :false;                         // Flag to send message to the console
+        this.debugInfo=n.debugInfo? n.debugInfo :"none";                         // Flag to send message to the console
         this.noout=false;
         this.mqttclient=null;
         this.mqttstack=[];
@@ -121,9 +127,30 @@ module.exports = function(RED) {
             hw_version:"1.0"
         }
 
-        function nlog(msg){
-            if (node.debugInfo==true){
-                node.log(msg);
+        function nlog(msg, level="debug"){
+            const levels = {
+                "none": 0,
+                "error": 1,
+                "warn": 2,
+                "info": 3,
+                "debug": 4
+            };
+            const currentLevel = levels[node.debugInfo] || 0;
+            const msgLevel = levels[level] || 4;
+
+            if (msgLevel <= currentLevel){
+                if (level === "error") {
+                    node.error(msg);
+                } else if (level === "warn") {
+                    node.warn(msg);
+                } else {
+                    node.log(msg);
+                    // Also send to warn if it was previously doing so for debug visibility in sidebar
+                    // The original code did node.log AND node.warn for debugInfo=true
+                    if (level === "debug" || level === "info") {
+                         node.warn(msg); 
+                    }
+                }
             }
         }
 
@@ -132,23 +159,32 @@ module.exports = function(RED) {
             return JSON.stringify(a) === JSON.stringify(b)
         }
 
-        function setState(matchingEvent) {
+        function setState(matchingEvent=-1) {
             var msg = {};
 
             let hasSpchanged=false;
 
+            if (node.activScheduleId===undefined){
+                node.status({
+                    fill:  'yellow',
+                    shape: 'dot',
+                    text:("Not ready, schedule not defined")
+                }); 
+                return;
+            }
+
             if (node.executionMode=="off"){
-                nlog("scheduler executionMode:off returning");
+                nlog("scheduler executionMode:off returning","debug");
                 
                 node.status({
                     fill:  'black',
                     shape: 'dot',
-                    text:("executionMode: off, no event")
+                    text:("Off, no event")
                 });
                 return;
 
             }else if (node.executionMode=="manual"){                                            // Manual Execution
-                nlog("node.executionMode==manual");
+                nlog("node.executionMode==manual","debug");
                 
                 let ovrM=moment(node.overrideTs).add(node.overrideDuration,"m")
                 let now = moment();
@@ -159,26 +195,27 @@ module.exports = function(RED) {
                 if (parseFloat(node.activeSp)!=parseFloat(node.prevSp))
                     hasSpchanged=true;
                 
-                msg.payload={
-                    command:"set",
-                    setpoint:parseFloat(node.overrideSp),
-                    previous_setpoint:parseFloat(node.prevSp),
-                    executionmode:node.executionMode,
-                    setname:"override",
-                    overrideduration:parseInt(node.overrideDuration),
-                    activeruleidx:-1,
-                    prevruleidx: parseInt(node.prevRuleIdx),
-                    triggermode:node.triggerMode,
-                    manualtrigger:node.manualTrigger,
-                    short_start:0,
-                    short_end:0,
-                    start:0,
-                    end:0,
-                    duration:diff,
-                    hasspchanged:hasSpchanged
-                }
-
                 if (node.mqttclient!=null && node.mqttstack.length<100){
+
+                    msg.payload={
+                        command:"set",
+                        setpoint:parseFloat(node.overrideSp),
+                        previous_setpoint:parseFloat(node.prevSp),
+                        executionmode:node.executionMode,
+                        setname:"override",
+                        overrideduration:parseInt(node.overrideDuration),
+                        activeruleidx:-1,
+                        prevruleidx: parseInt(node.prevRuleIdx),
+                        triggermode:node.triggerMode,
+                        manualtrigger:node.manualTrigger,
+                        short_start:0,
+                        short_end:0,
+                        start:0,
+                        end:0,
+                        duration:diff,
+                        hasspchanged:hasSpchanged
+                    }
+
                     let mqttmsg={topic:node.state_mode_topic,payload:{value:"manual"},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
@@ -206,11 +243,11 @@ module.exports = function(RED) {
                 node.status({
                     fill:  'yellow',
                     shape: 'dot',
-                    text:("manual sp "+node.overrideSp+" °C, "+diff+" min left")
+                    text:("Manual sp:"+node.overrideSp+" °C, "+diff+" min left")
                 });   
 
             }else if (matchingEvent.ruleIdx==-1){                                               // No matching event found, output default sp
-                nlog("matchingEvent.ruleIdx==-1 no event matched, output default sp");
+                nlog("matchingEvent.ruleIdx==-1 no event matched, output default sp","debug");
                 if (node.mqttclient!=null && node.mqttstack.length<100 ){
                     
                     let mqttmsg={topic:node.state_current_sp_topic,payload:{value:node.defaultSp},qos:0,retain:false};
@@ -259,16 +296,16 @@ module.exports = function(RED) {
                 node.status({
                     fill:  'gray',
                     shape: 'ring',
-                    text:("Default setpoint: "+node.defaultSp+" °C")
+                    text:("Default sp: "+node.defaultSp+" °C")
                 });
 
             }else if (matchingEvent.ruleIdx>=0){                                                // Matching event found
-                nlog("matchingEvent.ruleIdx>=0 event matched");
+                
                 node.prevRuleIdx=node.activeRuleIdx;
                 node.activeRuleIdx=parseInt(matchingEvent.ruleIdx);
 
-                nlog("matchingEvent.ruleIdx:"+matchingEvent.ruleIdx);
-                nlog("matchingEvent.eventId:"+matchingEvent.eventId);
+                nlog("matchingEvent.ruleIdx:"+matchingEvent.ruleIdx + " eventId:"+matchingEvent.eventId,"debug");
+               
                 var event=node.events.find((item) => parseInt(item.id)==parseInt(matchingEvent.eventId));
                 
                 var m_s=moment(event.start);
@@ -280,13 +317,13 @@ module.exports = function(RED) {
 
                 var period=dayStr[m_s.days()]+" "+d_s+" - "+dayStr[m_e.days()]+" "+d_e;
                 if (node.rules===undefined){
-                    node.warn("error node.rules is undefined");
+                    nlog("error node.rules is undefined","error");
                     return;
                 }
 
                 let r=node.rules.find(({ruleIdx}) => parseInt(ruleIdx)==parseInt(matchingEvent.ruleIdx));
                 if (r===undefined){
-                    node.error("rule should not be undefined");
+                    nlog("rule should not be undefined","error");
                     return;
                 }
 
@@ -347,12 +384,7 @@ module.exports = function(RED) {
 
             // Only send anything if the state have changed, on trigger and when configured to output on a minutely basis.
             
-            nlog("-->setState(matchingEvent) output:");
-            nlog("   node.activeRuleIdx:"+node.activeRuleIdx);
-            nlog("   node.prevRuleIdx:"+node.prevRuleIdx);
-            nlog("   node.activeSp:"+node.activeSp);
-            nlog("   node.prevSp:"+node.prevSp);
-            nlog("   noout:"+node.noout)
+            nlog(`-->setState(matchingEvent) output: activeRuleIdx:${node.activeRuleIdx}, prevRuleIdx:${node.prevRuleIdx}, activeSp:${node.activeSp}, prevSp:${node.prevSp}, noout:${node.noout}`, "debug");
             
             if (node.manualTrigger || 
                 node.triggerMode == 'triggerMode.minutely' || 
@@ -360,8 +392,8 @@ module.exports = function(RED) {
                 node.activeSp !== node.prevSp || node.firstEval==true) {
                                 
                 if (/*!node.firstEval &&*/ !node.noout){
-                    node.send([msg,null]);
-                    //nlog("   output msg:"+JSON.stringify(msg));
+                    node.send(msg);
+                    
                     node.noout=false;
                 }else if (node.noout==true)
                     node.noout=false;
@@ -510,8 +542,8 @@ module.exports = function(RED) {
         function evaluate() {
 
             if (node.executionMode == 'off') {
-                node.status({fill: 'gray', shape: 'dot', text: 'OFF'})
-                return
+                //node.status({fill: 'gray', shape: 'dot', text: 'OFF'})
+                return setState(null);
             }
             
             if (node.executionMode == 'manual') {
@@ -520,16 +552,17 @@ module.exports = function(RED) {
                 var now = moment();
                 if (now> ovrM.add()){
                     node.executionMode='auto';
-                    nlog("   exceed OverrideDuration");
-                    nlog("   executionMode=manual->auto");
+                    nlog("   exceed OverrideDuration, executionMode=manual->auto","debug");
                     node.noout=false;
                     node.endOfOverride=true;
                 }
             }
+
             let s=node.schedules.find(({idx}) => parseInt(idx)==parseInt(node.activScheduleId));
             if (s===undefined){
-                node.warn("scheduler is undefined returning");
-                return;
+                node.activScheduleId=undefined;
+                nlog("scheduler is undefined returning","error");
+                return setState(null);
             }
 
             var matchEvent = scheduler.matchSchedule(s)
@@ -540,10 +573,10 @@ module.exports = function(RED) {
             return setState(matchEvent);
         }
 
-        node.on('input', function(msg) {
+        node.on('input', function(msg){
            
             if (msg===undefined || msg.payload===undefined){
-                node.warn("invalid msg in input");
+               nlog("invalid msg in input","error");
             }
 
             if (msg.payload.command!=undefined && msg.payload.command.match(/^(1|on|0|off|auto|override|trigger|schedule)$/i)) {
@@ -551,52 +584,56 @@ module.exports = function(RED) {
                 let command=msg.payload.command;
                 if (command == '1' || command == 'trigger' || command== 'on'){
                     node.manualTrigger = true;
+                    if (command == 'on' && node.executionMode=="off")
+                        node.executionMode="auto";
+
+                    nlog("Command:trigger/on/1 manual trigger evaluation","info");
                 }
 
-                if (command=="auto"){
+                else if (command=="auto"){
                     node.executionMode="auto";
                     let now = new Date();
                     node.overrideTs=now.toISOString();
+                    nlog("Command:auto set executionMode to auto","info");
                 }
 
-                if (command=="schedule"){
+                else if (command=="schedule"){
 
                     if (msg.payload.name===undefined){
-                        node.warn('input received schedule missing msg.name ');
+                        nlog('Command:schedule, missing input parameter:msg.name ','error');
                         return;
                     }
                     let s=node.schedules.find(({name}) => name==msg.payload.name);
                 
                     if (s===undefined){
-                        node.warn('input received schedule name not found');
+                        nlog('Command:schedule, schedule name:'+msg.payload.name+' not found','error');
                         return;
                     }
                     
-
                     node.events=s.events;                     // <------------------ TODO Change input by name and not by id
                     node.activScheduleId=s.idx;
                     
-                    nlog("input change activeSchedule")
-                    nlog("node.activScheduleId:"+node.activScheduleId);
-                   
+                    nlog("Command:schedule change active schedule to name:"+s.name,"info");
+                    
                     msg.payload={value:node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId)).name};
                     
                     let mqttmsg={topic:node.state_schedule_list_topic,payload:msg.payload,qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
-
                     sendMqtt();
+                    
                 }
 
-                if (command=="off" || command == '0'){
+                else if (command=="off" || command == '0'){
+                    nlog("Command:off set executionMode to off","info");
                     node.executionMode="off";
                     let now = new Date();
                     node.overrideTs=now.toISOString();
                 }
 
-                if (command=="override"){
-                    nlog("Input received: override");
-                    if (msg.payload.setpoint=== undefined || isNaN(msg.payload.setpoint) || parseFloat(msg.payload.setpoint)<0 || parseFloat(msg.payload.setpoint)>35){ //<----------- Todo define Max & Min in config
-                        node.warn('received trigger missing or invalid msg.sp number');
+                else if (command=="override"){
+                   
+                    if (msg.payload.setpoint=== undefined || isNaN(msg.payload.setpoint) || parseFloat(msg.payload.setpoint)<0 || parseFloat(msg.payload.setpoint)>40){ //<----------- Todo define Max & Min in config
+                       nlog('Command:override missing or invalid msg.setpoint number',"error");
                         return;
                     }
                        
@@ -610,11 +647,21 @@ module.exports = function(RED) {
                         nlog("noout==true");
                     }
 
+                    nlog("Command:override set executionMode to manual, sp:"+node.overrideSp,"info");
+                    
                 }
-                
+                // Evaluate is done is not returned before by one of the above conditions
+
                 evaluate();
             }
-        })
+            else{
+                if (msg.payload.command!=undefined )
+                    nlog("invalid command in input msg.payload.command:"+msg.payload.command,"error"); 
+                else
+                    nlog("Command:"+command+",unhandled command in input msg.payload","warn");
+                return;
+            }
+        });
 
         if (node.activScheduleId)
             node.events=node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId)).events;
@@ -646,7 +693,7 @@ module.exports = function(RED) {
             });
 
             node.mqttclient.on('error', function (error) {
-                node.warn("MQTT error:"+error);
+                nlog("MQTT error:"+error,"error");
             });
         
             node.mqttclient.on('connect', () => {
@@ -657,27 +704,25 @@ module.exports = function(RED) {
                 let mqttmsg={topic:node.state_mode_topic,payload:{value:node.executionMode},qos:0,retain:false};
                 node.mqttstack.push(mqttmsg);
 
-                nlog("MQTT node.activScheduleId:"+node.activScheduleId)
+                nlog("MQTT node.activScheduleId:"+node.activScheduleId,"debug")
                 let s=node.schedules.find(({idx}) => parseInt(idx)==parseInt(node.activScheduleId));
                 
                 if (s!==undefined){
                     mqttmsg={topic:node.state_schedule_list_topic,payload:{value:s.name},qos:0,retain:false};
                     node.log(JSON.stringify(mqttmsg));
                     node.mqttstack.push(mqttmsg);
-                    nlog("MQTT init schedule name:"+s.name);
+                    nlog("MQTT init schedule name:"+s.name,"debug");
                 }else{
-                    nlog("MQTT init value can not find schedule");
+                    nlog("MQTT init value can not find schedule","error");
                 }
 
                 sendMqtt();
 
                 node.mqttclient.subscribe([node.set_mode_topic,node.set_schedule_list_topic], () => {
-                    nlog("MQTT Subscribe to topic:")
-                    nlog("  "+node.set_mode_topic);
-                    nlog("  "+node.set_schedule_list_topic);
+                    nlog(`MQTT Subscribe to topic: ${node.set_mode_topic}, ${node.set_schedule_list_topic}`, "debug");
                 })
 
-                nlog('MQTT Connected start dequeuing'); 
+                nlog('MQTT Connected start dequeuing',"debug"); 
 
                 let msg=node.mqttstack.shift();
                 while (msg!==undefined){
@@ -695,26 +740,26 @@ module.exports = function(RED) {
 
             node.mqttclient.on('message', (topic, payload) => {
                 
-                node.log('MQTT Received topic:'+topic);
+                node.log('MQTT Received topic:'+topic,"debug");
                 let p=payload.toString();
-                node.log('MQTT Received payload:'+p);
+                node.log('MQTT Received payload:'+p,"debug");
 
                 if (topic==node.set_mode_topic && (p=="auto" || p=="manual" || p=="off")){
-                    nlog("MQTT change executionMode mode:"+p);
+                    nlog("MQTT change executionMode mode:"+p,"info");
                     var now = new Date();
                     node.overrideTs=now.toISOString();
                     node.executionMode=p;
 
                     let mqttmsg={topic:node.state_mode_topic,payload:{value:node.executionMode},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
-                    
-
+                
                     evaluate(); 
+
                 }else if(topic==node.set_schedule_list_topic){
                     let s=node.schedules.find(({name}) => name==p);
                 
                     if (s!==undefined){
-                        nlog("MQTT change activeSchedule")
+                        nlog("MQTT change activeSchedule","info")
                         node.activScheduleId=s.idx;
                         node.events=s.events;
 
@@ -724,45 +769,42 @@ module.exports = function(RED) {
 
                         evaluate();                     
                     }else{
-                        nlog("MQTT received schedule name not found");
+                        nlog("MQTT received schedule name not found","error");
                     }
                 }
             })
         }
 
     
-            function sendMqtt(){
+        function sendMqtt(){
 
-                if (node.mqttclient==null || node.mqttclient.connected!=true){
-                    node.warn("MQTT not connected...");
-                    return;
-                }
+            if (node.mqttclient==null || node.mqttclient.connected!=true){
+                node.warn("MQTT not connected...");
+                return;
+            }
 
-                nlog('MQTT dequeueing'); 
+            nlog('MQTT dequeueing',"debug"); 
 
-                let msg=node.mqttstack.shift();
+            let msg=node.mqttstack.shift();
+            
+            while (msg!==undefined){
                 
-                while (msg!==undefined){
-                   
-                    if (msg.topic===undefined || msg.payload===undefined)
-                        return;
+                if (msg.topic===undefined || msg.payload===undefined)
+                    return;
 
-                    let msgstr=JSON.stringify(msg.payload);
-                    node.mqttclient.publish(msg.topic.toString(),msgstr,{ qos: msg.qos, retain: msg.retain },(error) => {
-                        if (error) {
-                            node.error(error)
-                        }
-                    });
-                    msg=node.mqttstack.shift();
-                }
-            };
-
-
-        
+                let msgstr=JSON.stringify(msg.payload);
+                node.mqttclient.publish(msg.topic.toString(),msgstr,{ qos: msg.qos, retain: msg.retain },(error) => {
+                    if (error) {
+                        node.error(error)
+                    }
+                });
+                msg=node.mqttstack.shift();
+            }
+        };
 
         node.on('close', function(done) {
-            nlog("closing mqtt connexion");
-            node.log('MQTT disconnecting');
+            nlog("closing mqtt connexion","debug");
+            node.log('MQTT disconnecting',"debug");
             clearInterval(node.evalInterval);
             if (node.mqttclient) {
                 node.mqttclient.end();
@@ -778,13 +820,13 @@ module.exports = function(RED) {
         const node = RED.nodes.getNode(req.params.id);
         if (node != null) {
             try {
-               
                 node.ev();
-                
                 res.sendStatus(200);
+
             } catch(err) {
                 res.sendStatus(500);
                 node.error(RED._("inject.failed",{error:err.toString()}));
+
             }
         } else {
             res.sendStatus(404);
