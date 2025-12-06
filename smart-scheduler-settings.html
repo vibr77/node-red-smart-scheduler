@@ -6,8 +6,10 @@
       mqttHost:{value: 'myhostmqtt.com', required: true},
       mqttPort:{value: '1883', required: true},
       mqttUser:{value: '', required: false},
-      mqttPassword:{value: '', required: false},
       mqttRootPath:{value: 'homeassistant', required: true},
+    },
+    credentials: {
+      mqttPassword: {type: "password"}
     },
     label: function () {
       return this.name
@@ -28,6 +30,7 @@
               url: "smart-scheduler-settings/testConnection",
               type: "POST",
               data: JSON.stringify({
+                  id: node.id,
                   mqttHost: host,
                   mqttPort: port,
                   mqttUser: user,

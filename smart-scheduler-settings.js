@@ -7,10 +7,14 @@ module.exports = function (RED) {
     this.mqttHost = n.mqttHost
     this.mqttPort = n.mqttPort
     this.mqttUser = n.mqttUser
-    this.mqttPassword = n.mqttPassword
+    this.mqttPassword = this.credentials.mqttPassword;
     this.mqttRootPath = n.mqttRootPath
   }
-  RED.nodes.registerType('smart-scheduler-settings', SmartSchedulerSettings)
+  RED.nodes.registerType('smart-scheduler-settings', SmartSchedulerSettings, {
+    credentials: {
+      mqttPassword: {type:"password"}
+    }
+  });
   RED.httpAdmin.post("/smart-scheduler-settings/testConnection", RED.auth.needsPermission("smart-scheduler-settings.write"), function(req, res) {
       const config = req.body;
       const protocol = 'mqtt';
@@ -19,12 +23,20 @@ module.exports = function (RED) {
       const rootPath = config.mqttRootPath;
       const connectUrl = `${protocol}://${host}:${port}`;
       
+      let password = config.mqttPassword;
+      if (config.id && (!password || password === "")) {
+          const creds = RED.nodes.getCredentials(config.id);
+          if (creds && creds.mqttPassword) {
+              password = creds.mqttPassword;
+          }
+      }
+
       const options = {
           clientId: `test_${Math.random().toString(16).slice(3)}`,
           clean: true,
           connectTimeout: 4000,
           username: config.mqttUser,
-          password: config.mqttPassword,
+          password: password,
           reconnectPeriod: 0 
       };
       

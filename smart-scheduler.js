@@ -28,6 +28,8 @@ TODO:
 
 var moment = require('moment'); // require
 const mqtt = require("mqtt");
+const fs = require('fs');
+const path = require('path');
 const pjson = require('./package.json');
 
 module.exports = function(RED) {
@@ -154,6 +156,76 @@ module.exports = function(RED) {
             }
         }
 
+        function saveState() {
+            const state = {
+                executionMode: node.executionMode,
+                overrideTs: node.overrideTs,
+                overrideSp: node.overrideSp,
+                overrideDuration: node.overrideDuration,
+                activScheduleId: node.activScheduleId,
+                activeSp: node.activeSp,
+                prevSp: node.prevSp,
+                activeRuleIdx: node.activeRuleIdx,
+                prevRuleIdx: node.prevRuleIdx,
+                timestamp: Date.now()
+            };
+            
+            // Save to both context and file system
+            node.context().set("schedulerState", state);
+            
+            // Save to file for persistence across deploys
+            const stateDir = path.join(RED.settings.userDir, '.node-red-state');
+            const stateFile = path.join(stateDir, `scheduler-${node.id}.json`);
+            
+            try {
+                if (!fs.existsSync(stateDir)) {
+                    fs.mkdirSync(stateDir, { recursive: true });
+                }
+                fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+                nlog("State saved to file: mode=" + node.executionMode + ", sp=" + node.activeSp, "debug");
+            } catch (err) {
+                nlog("Error saving state to file: " + err.message, "error");
+            }
+        }
+
+        // Load saved state at startup
+        let savedState = null;
+        
+        // Try to load from file first (persists across deploys)
+        const stateDir = path.join(RED.settings.userDir, '.node-red-state');
+        const stateFile = path.join(stateDir, `scheduler-${node.id}.json`);
+        
+        try {
+            if (fs.existsSync(stateFile)) {
+                const fileData = fs.readFileSync(stateFile, 'utf8');
+                savedState = JSON.parse(fileData);
+                nlog("Loaded state from file", "info");
+            }
+        } catch (err) {
+            nlog("Error loading state from file: " + err.message, "warn");
+        }
+        
+        // Fallback to context storage if file doesn't exist
+        if (!savedState) {
+            savedState = node.context().get("schedulerState");
+            if (savedState) {
+                nlog("Loaded state from context", "info");
+            }
+        }
+        
+        if (savedState) {
+            node.executionMode = savedState.executionMode || node.executionMode;
+            node.overrideTs = savedState.overrideTs || node.overrideTs;
+            node.overrideSp = savedState.overrideSp || node.overrideSp;
+            node.overrideDuration = savedState.overrideDuration || node.overrideDuration;
+            node.activScheduleId = savedState.activScheduleId || node.activScheduleId;
+            node.activeSp = savedState.activeSp || 0;
+            node.prevSp = savedState.prevSp || 0;
+            node.activeRuleIdx = savedState.activeRuleIdx || 0;
+            node.prevRuleIdx = savedState.prevRuleIdx || 0;
+            nlog("Loaded saved state: mode=" + node.executionMode + ", sp=" + node.activeSp, "info");
+        }
+
         function isEqual(a, b) {
             // simpler and more what we want compared to RED.utils.compareObjects()
             return JSON.stringify(a) === JSON.stringify(b)
@@ -199,8 +271,8 @@ module.exports = function(RED) {
 
                     msg.payload={
                         command:"set",
-                        setpoint:parseFloat(node.overrideSp),
-                        previous_setpoint:parseFloat(node.prevSp),
+                        setpoint:parseFloat(parseFloat(node.overrideSp).toFixed(2)),
+                        previous_setpoint:parseFloat(parseFloat(node.prevSp).toFixed(2)),
                         executionmode:node.executionMode,
                         setname:"override",
                         overrideduration:parseInt(node.overrideDuration),
@@ -219,10 +291,10 @@ module.exports = function(RED) {
                     let mqttmsg={topic:node.state_mode_topic,payload:{value:"manual"},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
-                    mqttmsg={topic:node.state_current_sp_topic,payload:{value:node.overrideSp},qos:0,retain:false};
+                    mqttmsg={topic:node.state_current_sp_topic,payload:{value:parseFloat(node.overrideSp).toFixed(2)},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
-                    mqttmsg={topic:node.state_previous_sp_topic,payload:{value:node.prevSp},qos:0,retain:false};
+                    mqttmsg={topic:node.state_previous_sp_topic,payload:{value:parseFloat(node.prevSp).toFixed(2)},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
                     
                     mqttmsg={topic:node.state_current_event_name_topic,payload:{value:"None"},qos:0,retain:false};
@@ -250,10 +322,10 @@ module.exports = function(RED) {
                 nlog("matchingEvent.ruleIdx==-1 no event matched, output default sp","debug");
                 if (node.mqttclient!=null && node.mqttstack.length<100 ){
                     
-                    let mqttmsg={topic:node.state_current_sp_topic,payload:{value:node.defaultSp},qos:0,retain:false};
+                    let mqttmsg={topic:node.state_current_sp_topic,payload:{value:parseFloat(node.defaultSp).toFixed(2)},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
-                    mqttmsg={topic:node.state_previous_sp_topic,payload:{value:node.prevSp},qos:0,retain:false};
+                    mqttmsg={topic:node.state_previous_sp_topic,payload:{value:parseFloat(node.prevSp).toFixed(2)},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
                     
                     mqttmsg={topic:node.state_current_event_name_topic,payload:{value:"None"},qos:0,retain:false};
@@ -278,8 +350,8 @@ module.exports = function(RED) {
                 
                 msg.payload={
                     command:"set",
-                    setpoint:parseFloat(node.defaultSp),
-                    previous_setpoint:parseFloat(node.prevSp),
+                    setpoint:parseFloat(parseFloat(node.defaultSp).toFixed(2)),
+                    previous_setpoint:parseFloat(parseFloat(node.prevSp).toFixed(2)),
                     setname:"default rule",
                     short_start:0,
                     short_end:0,
@@ -332,10 +404,10 @@ module.exports = function(RED) {
                     let mqttmsg={topic:node.state_mode_topic,payload:{value:"auto"},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
-                    mqttmsg={topic:node.state_current_sp_topic,payload:{value:r.spTemp},qos:0,retain:false};
+                    mqttmsg={topic:node.state_current_sp_topic,payload:{value:parseFloat(r.spTemp).toFixed(2)},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
                     
-                    mqttmsg={topic:node.state_previous_sp_topic,payload:{value:node.prevSp},qos:0,retain:false};
+                    mqttmsg={topic:node.state_previous_sp_topic,payload:{value:parseFloat(node.prevSp).toFixed(2)},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
                     mqttmsg={topic:node.state_current_event_name_topic,payload:{value:r.setName},qos:0,retain:false};
@@ -366,8 +438,8 @@ module.exports = function(RED) {
 
                 msg.payload={
                     command:"set",
-                    setpoint:parseFloat(r.spTemp),
-                    previous_setpoint:parseFloat(node.prevSp),
+                    setpoint:parseFloat(parseFloat(r.spTemp).toFixed(2)),
+                    previous_setpoint:parseFloat(parseFloat(node.prevSp).toFixed(2)),
                     setname:r.setName,
                     short_start:d_s,
                     short_end:d_e,
@@ -401,6 +473,7 @@ module.exports = function(RED) {
                 node.prevPayload = msg.payload
                 node.prevSp=    node.activeSp;
                 node.prevRuleIdx=node.activeRuleIdx
+                saveState();  // Save state after successful update
             }
 
             node.firstEval = false
@@ -550,7 +623,7 @@ module.exports = function(RED) {
                 // First check if below threshold override duration
                 let ovrM=moment(node.overrideTs).add(node.overrideDuration,"m")
                 var now = moment();
-                if (now> ovrM.add()){
+                if (now > ovrM){
                     node.executionMode='auto';
                     nlog("   exceed OverrideDuration, executionMode=manual->auto","debug");
                     node.noout=false;
@@ -595,6 +668,7 @@ module.exports = function(RED) {
                     let now = new Date();
                     node.overrideTs=now.toISOString();
                     nlog("Command:auto set executionMode to auto","info");
+                    saveState();  // Save state when mode changes
                 }
 
                 else if (command=="schedule"){
@@ -621,6 +695,8 @@ module.exports = function(RED) {
                     node.mqttstack.push(mqttmsg);
                     sendMqtt();
                     
+                    saveState();  // Save state when schedule changes
+                    
                 }
 
                 else if (command=="off" || command == '0'){
@@ -628,6 +704,7 @@ module.exports = function(RED) {
                     node.executionMode="off";
                     let now = new Date();
                     node.overrideTs=now.toISOString();
+                    saveState();  // Save state when mode changes
                 }
 
                 else if (command=="override"){
@@ -648,6 +725,7 @@ module.exports = function(RED) {
                     }
 
                     nlog("Command:override set executionMode to manual, sp:"+node.overrideSp,"info");
+                    saveState();  // Save state when entering override mode
                     
                 }
                 // Evaluate is done is not returned before by one of the above conditions
@@ -658,13 +736,20 @@ module.exports = function(RED) {
                 if (msg.payload.command!=undefined )
                     nlog("invalid command in input msg.payload.command:"+msg.payload.command,"error"); 
                 else
-                    nlog("Command:"+command+",unhandled command in input msg.payload","warn");
+                    nlog("invalid or missing command in input msg.payload","warn");
                 return;
             }
         });
 
-        if (node.activScheduleId)
-            node.events=node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId)).events;
+        if (node.activScheduleId){
+            let foundSchedule = node.schedules.find((sched)=>parseInt(sched.idx)==parseInt(node.activScheduleId));
+            if (foundSchedule) {
+                node.events = foundSchedule.events;
+            } else {
+                nlog("Active schedule ID "+node.activScheduleId+" not found in schedules list", "warn");
+                node.activScheduleId = undefined;
+            }
+        }
 
         // re-evaluate every minute
         node.evalInterval = setInterval(evaluate, node.cycleDuration *60000)

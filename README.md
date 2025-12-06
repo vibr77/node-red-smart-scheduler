@@ -28,6 +28,7 @@ The Smartscheduler is interfaced with Home assistant and use MQTT to advertise a
 - Different output modes (state-change, state-change+startup, every minute)
 - External manual trigger
 - Default setPoint when there is no event
+- State persistence across Node-RED restarts and flow deploys
 
 ## Details
 
@@ -64,6 +65,25 @@ msg:{
 | setpoint | [Integer 0-35]| define the override setpoint temperature |
 | noout	| [true\|false] | flag to avoid output message from the scheduler on the next cycle to avoid endless loop with override message comming from the smart-valve
 
+### Business Rules
+
+#### Schedule Activation Condition
+A schedule is **ACTIVE** when the current time falls within a defined heating block in the weekly calendar. The node evaluates time-based rules to determine which setpoint to apply.
+
+#### Target Conditions on Input
+*   **Command "trigger" or "1"**: Evaluates current schedule and sends setpoint if `executionMode != "off"`
+*   **Command "set"**: Updates the active schedule setpoint and triggers evaluation cycle
+*   **Command "on" or "auto"**: Sets `executionMode = "auto"`, enables schedule-based control
+*   **Command "off" or "0"**: Sets `executionMode = "off"`, disables all output
+*   **Command "override"**: 
+    *   Sets `executionMode = "override"`
+    *   Stores override setpoint and timestamp
+    *   Bypasses schedule until override duration expires or cancelled
+    *   Override duration is configurable in node settings
+    *   Requires `setpoint` value in payload
+*   **GroupId matching**: Input messages only processed if `msg.payload.groupId` matches the node's configured Group ID
+*   **Schedule selection**: Active schedule is selected either from configuration or via MQTT/input command
+*   **Default setpoint**: When no active schedule event exists, the configured default setpoint is used
 
 ### Outputs
 
@@ -149,12 +169,34 @@ The name of the device in Home Assistant is the name of the node in the setting.
 | Event end | Advertise | Current event end time | [MQTT_PREFIX/sensor/[UniqueId]/current_event_end/config ]|
 | Event end  | State |Current event end time | [MQTT_PREFIX/[UniqueId]/current_event_end/state ]|
 
+## State Persistence
+
+The node automatically saves its complete state to the file system at `~/.node-red/.node-red-state/scheduler-{node-id}.json`. This includes:
+
+*   **executionMode**: Current mode (auto/manual/off)
+*   **overrideTs**: Override start timestamp
+*   **overrideSp**: Override setpoint
+*   **overrideDuration**: Override duration in minutes
+*   **activScheduleId**: Currently active schedule ID
+*   **activeSp**: Current active setpoint
+*   **prevSp**: Previous setpoint
+*   **activeRuleIdx**: Current active rule index
+*   **prevRuleIdx**: Previous rule index
+*   **timestamp**: Last save timestamp
+
+This state is automatically restored when:
+*   Node-RED restarts
+*   Flows are redeployed
+*   Node is reinitialized
+
+The state file persists independently of Node-RED's context storage, ensuring the scheduler remembers its execution mode, active schedule, override settings, and current setpoints even after complete system restarts or redeployments. This prevents heating schedule disruptions and ensures seamless operation continuity.
 
 
 
 If you like my work, please support me
 
 i<a href="https://www.buymeacoffee.com/vincentbe" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 
 
 

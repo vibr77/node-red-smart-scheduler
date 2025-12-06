@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-vib-smart-scheduler",
-  "version": "0.80.1",
+  "version": "0.81.5",
   "description": "Node Red Smart Scheduler MQTT Home Assistant ",
   "author": "Vincent Besson <vincent@besson.be>",
   "license" : "CC-BY-2.5",

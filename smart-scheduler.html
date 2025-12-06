@@ -605,14 +605,14 @@
                        
                         $("#sched_btn_"+ctrl_i).html($('#node-input-set-name_'+ctrl_i).val());
      
-                        let r=node.rules.find(({ruleIdx}) => ruleIdx===ctrl_i);
+                        let r=node.rules.find(({ruleIdx}) => ruleIdx==ctrl_i);
                         r.setName=$('#node-input-set-name_'+ctrl_i).val();
                         
                     });
 
                     $('#node-input-temp-sp_'+rule.ruleIdx).keyup(function (event) {
                         ctrl_i=$(event.target).attr('idx');
-                        node.rules.find(({ruleIdx}) => ruleIdx===ctrl_i).spTemp=$('#node-input-temp-sp_'+ctrl_i).val();  
+                        node.rules.find(({ruleIdx}) => ruleIdx==ctrl_i).spTemp=$('#node-input-temp-sp_'+ctrl_i).val();  
                     });
 
                     $(".my-button-group").off("click");
@@ -791,7 +791,7 @@
     </div>
 
     <div class="form-row">
-        <label for="node-input-topic"><i class="fa fa-tasks"></i> UniqueId</label>
+        <label for="node-input-uniqueId"><i class="fa fa-tasks"></i> UniqueId</label>
         <input type="text" title="Unique id used for home assistant, has to be unique" id="node-input-uniqueId" placeholder="uniqueId"></input>
     </div>
 
@@ -936,5 +936,56 @@
 </script>
 
 <script type="text/html" data-help-name="smart-scheduler">
-    <p></p>
+    <h3>SMART-SCHEDULER NODE</h3>
+    <p>This node manages heating schedules with visual weekly calendar, multiple schedules, and Home Assistant integration via MQTT.</p>
+    
+    <h3>INPUT MESSAGE FORMAT:</h3>
+    <pre><code>msg.payload = {
+    command: [string],      // Required: "trigger", "set", "on", "off", "override"
+    setpoint: [number],     // Target temperature (°C) - required for "set" and "override"
+    groupId: [number]       // Group identifier - required for all commands
+}
+
+Examples:
+// Trigger schedule evaluation
+msg.payload = { command: "trigger", groupId: 1 }
+
+// Set new setpoint
+msg.payload = { command: "set", setpoint: 22, groupId: 1 }
+
+// Manual override with setpoint
+msg.payload = { command: "override", setpoint: 24, groupId: 1 }</code></pre>
+
+    <h3>BUSINESS RULES:</h3>
+    <h4>Schedule Activation Condition:</h4>
+    <p>A schedule is <strong>ACTIVE</strong> when current time falls within a defined heating block in the weekly calendar.</p>
+    
+    <h4>Target Conditions on Input:</h4>
+    <ul>
+        <li><strong>Command "trigger":</strong> Evaluates current schedule, sends setpoint if <code>executionMode != "off"</code></li>
+        <li><strong>Command "set":</strong> Updates active schedule setpoint, triggers evaluation</li>
+        <li><strong>Command "on":</strong> Sets <code>executionMode = "auto"</code>, enables schedule-based control</li>
+        <li><strong>Command "off":</strong> Sets <code>executionMode = "off"</code>, disables all output</li>
+        <li><strong>Command "override":</strong> 
+            <ul>
+                <li>Sets <code>executionMode = "override"</code></li>
+                <li>Stores override setpoint and duration</li>
+                <li>Bypasses schedule until override expires or cancelled</li>
+                <li>Override timestamp saved for duration tracking</li>
+            </ul>
+        </li>
+        <li><strong>GroupId matching:</strong> Input messages only processed if <code>msg.payload.groupId == node.groupId</code></li>
+    </ul>
+    
+    <h4>KEY FEATURES:</h4>
+    <ul>
+        <li>Visual weekly calendar with color-coded heating zones</li>
+        <li>Multiple schedule management</li>
+        <li>Manual override mode with configurable duration</li>
+        <li>On/Off/Auto/Override execution modes</li>
+        <li>Home Assistant integration via MQTT</li>
+        <li><strong>State Persistence:</strong> Automatically saves execution mode, active schedule, override settings, and setpoints to <code>~/.node-red/.node-red-state/scheduler-{node-id}.json</code>. State is restored on Node-RED restarts and flow redeployments, preventing heating schedule disruptions.</li>
+    </ul>
+    
+    <p>For detailed documentation, please refer to the README.md file.</p>
 </script>
