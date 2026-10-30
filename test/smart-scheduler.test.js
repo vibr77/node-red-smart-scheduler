@@ -37,6 +37,7 @@ const lastSent = (n) => { const a = sent(n); return a[a.length - 1]; };
 const min = (m) => clock.tick(m * 60000);
 
 describe('smart-scheduler 0.82', function () {
+    this.timeout(60000);      // long simulated periods (12 h, 25 h) on a fake clock; slow disks need more than 2 s
     describe('Schedule matching (lib/scheduler.js)', function () {
         const at = (d, h, m = 0) => new Date(2026, 9, 25 + d, h, m);   // 25 Oct 2026 is a Sunday (d=0)
         const m = (events, d, h, mi) => lib.matchSchedule({ events }, at(d, h, mi)).ruleIdx;
