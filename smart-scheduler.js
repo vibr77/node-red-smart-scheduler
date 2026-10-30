@@ -1,7 +1,7 @@
 
 /*
 __   _____ ___ ___        Author: Vincent BESSON
- \ \ / /_ _| _ ) _ \      Release: 0.82
+ \ \ / /_ _| _ ) _ \      Release: 0.82.1
   \ V / | || _ \   /      Date: 20261030
    \_/ |___|___/_|_\      Description: Nodered Heating Scheduler
                 2026      Licence: Creative Commons

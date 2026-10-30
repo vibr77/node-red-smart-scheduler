@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.82.1 — 2026-10-30
+
+- Schedule matching: an event stored with its end before its start on the same day (an overnight block such as
+  Sun 22:00 -> 06:00, as a copied or hand-edited block can be saved) ends the next morning; it matched almost
+  the whole week before.
+- UI tests follow the smart-valve 0.82.1 defaults (TRV timeout 150 min, Valve alarm 0 = warning only).
+- Tests: `npm test` (24 tests).
+
 ## 0.82.0 — 2026-10-30
 
 - Schedule matching rewritten: events crossing midnight or spanning several days now match after midnight

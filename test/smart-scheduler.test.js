@@ -70,6 +70,17 @@ describe('smart-scheduler 0.82', function () {
             assert.strictEqual(m(E, 0, 3, 0), -1);
         });
 
+        it('S-24 same day with the end before the start is an overnight block, not almost a week', function () {
+            const E = [ev(1, 1, 0, 22 * 60, 7, 6 * 60)];          // Sun 22:00 -> "Sun" 06:00 (end stored as 7)
+            assert.strictEqual(m(E, 0, 23, 0), 1);
+            assert.strictEqual(m(E, 1, 5, 0), 1);
+            assert.strictEqual(m(E, 1, 7, 0), -1);
+            assert.strictEqual(m(E, 3, 12, 0), -1, 'not matching the rest of the week');
+            const W = [ev(1, 1, 3, 22 * 60, 3, 6 * 60)];          // Wed 22:00 -> "Wed" 06:00
+            assert.strictEqual(m(W, 4, 5, 0), 1);
+            assert.strictEqual(m(W, 3, 12, 0), -1);
+        });
+
         it('S-05 accepts Sunday stored as 7 and an event ending at midnight', function () {
             assert.strictEqual(m([ev(1, 1, 7, 10 * 60, 7, 12 * 60)], 0, 11, 0), 1);
             assert.strictEqual(m([ev(1, 1, 5, 20 * 60, 6, 0)], 5, 23, 59), 1);

@@ -161,6 +161,7 @@ class Trv {
         this.checkin = opts.checkin || 52;        // stuck check-in period (min)
         this.sets = [];
         this.ignoreExternal = !!opts.ignoreExternal;   // TRV that stopped using the external temperature
+        this.step = opts.step || 0;                     // e.g. 0.5: the TRV rounds setpoints to its step
         this._sub = { connected: true, _emit: (ev, topic, buf) => this._onSet(topic, buf.toString()) };
         ['occupied_heating_setpoint', 'external_temperature_input', 'sensor', 'system_mode'].forEach(k =>
             broker.subs.push({ client: this._sub, topic: `${this.topic}/set/${k}` }));
@@ -180,7 +181,7 @@ class Trv {
         this.sets.push({ t: Date.now(), key, payload });
         if (this.mode !== 'healthy') return;      // a stuck or dead TRV ignores commands
         let v = payload; try { v = JSON.parse(payload); } catch (e) { /* string */ }
-        if (key === 'occupied_heating_setpoint') this.state.occupied_heating_setpoint = parseFloat(v);
+        if (key === 'occupied_heating_setpoint') this.state.occupied_heating_setpoint = this.step ? Math.round(parseFloat(v) / this.step) * this.step : parseFloat(v);
         if (key === 'external_temperature_input' && !this.ignoreExternal) this.state.local_temperature = parseFloat(v);
         if (key === 'sensor') this.state.sensor = v;
         if (key === 'system_mode') this.state.system_mode = v;

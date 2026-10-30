@@ -286,7 +286,7 @@ def t14(ui):
 def t15(ui):
     ui.open('sv1', wait_calendar=False)
     vals = ui.js('Object.fromEntries(["maxSp","heartbeat","sensorTimeout","trvTimeout","alarmDuration","frozenDelta","frozenDuration","ackTimeout","failedAction","trvLocalTempKey","trvAlarmKey"].map(k => [k, $("#node-input-"+k).val()]))')
-    assert vals == {"maxSp": "24", "heartbeat": "10", "sensorTimeout": "120", "trvTimeout": "90", "alarmDuration": "60",
+    assert vals == {"maxSp": "24", "heartbeat": "10", "sensorTimeout": "120", "trvTimeout": "150", "alarmDuration": "0",
                     "frozenDelta": "3", "frozenDuration": "60", "ackTimeout": "5", "failedAction": "failedAction.release",
                     "trvLocalTempKey": "local_temperature", "trvAlarmKey": "valve_alarm"}, vals
     ui.pg.locator('#node-input-ackTimeout').scroll_into_view_if_needed()
