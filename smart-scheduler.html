@@ -1,7 +1,6 @@
 <script type="text/javascript">
     // Terminal command  node-red -v -D logging.console.level=trace
     var eColor="#558006";
-    var ctrl_i=0;
 
 
 
@@ -14,7 +13,9 @@
             mqttSettings: {value: "", type: "smart-scheduler-settings"},
             name: {value:"smart-scheduler"},
             rules:{value:[{setName:"Confort",setColor:"#CCCCCC",spTemp:"19"}],validate: function(rules, opt) {
-                return true;
+                // every rule needs a numeric setpoint between 0 and 35 °C (0.81 accepted anything, giving NaN)
+                if (!Array.isArray(rules)) return true;
+                return rules.every(function(r){ var v=parseFloat(r.spTemp); return r.spTemp!=="" && !isNaN(v) && v>=0 && v<=35; });
             }},
             
             schedules:{value:"[]"},
@@ -68,6 +69,8 @@
                 return true
             }},
             
+            resendInterval:{value:"15",validate:function(v){ return v==="" || v===undefined || (!isNaN(v) && Number(v)>=0 && Number(v)<=1440); }},
+            maxSp:{value:"24",validate:function(v){ return v==="" || v===undefined || (!isNaN(v) && Number(v)>=5 && Number(v)<=35); }},
             debugInfo:{value:"none"}
             
         },
@@ -113,6 +116,13 @@
         },
         oneditprepare: function() {
             var node = this;
+            // 0.82: nodes created with an older version have no value for the new options. Show the
+            // default that the runtime applies instead of an empty field.
+            ['resendInterval','maxSp'].join(',').split(',').forEach(function(k){
+                var d = node._def.defaults[k];
+                if (d && (node[k]===undefined || node[k]==="" || node[k]===null)) { $('#node-input-'+k).val(d.value); }
+            });
+            var ctrl_i = -1;        // selected rule (calendar paint brush); -1 = delete mode. Was an implicit global.
            
             node.fromMoment = function(m) {
                 m = moment(m);
@@ -228,58 +238,55 @@
             }
 
             function cloneDailySchedule(src,dest){
-                    // Iterate to delete any existing event on the dest day
-                    if (node.calendar){
-                        var listEvent = node.calendar.getEvents();
-                        listEvent.forEach(event => { 
-                            
-                            let m_e = moment(event.endStr);
-                            let s_dow=m_e.day();
-                            if (s_dow==dest){
-                                node.activeSched.events = node.activeSched.events.filter(function(e) {
-                                    return event.id != e.id;
-                                });
-                                event.remove();
-                            }
+                // src/dest come from the Copy menus: 1=Mon … 7=Sun. moment().day() is 0=Sun … 6=Sat,
+                // and the editor week is 1-7 January 2018 (Monday 1st). 0.81 compared the two scales
+                // directly (Sunday never matched) and deleted by end day, so events crossing midnight
+                // were handled wrongly.
+                if (!node.calendar || !node.activeSched) return;
+                const dayOf = function(m){ let d=m.day(); return d===0 ? 7 : d; };
+                const delta = dest - src;
+                let listEvent = node.calendar.getEvents();
+
+                // remove the events starting on the destination day
+                listEvent.forEach(event => {
+                    if (dayOf(moment(event.startStr))==dest){
+                        node.activeSched.events = node.activeSched.events.filter(function(e) {
+                            return event.id != e.id;
                         });
-                        listEvent.forEach(event => { 
-                            let m_s = moment(event.startStr);
-                            let m_e = moment(event.endStr);
-                            let s_dow=m_s.day();
-                            if (s_dow==src){
-
-                                let newStart="2018-01-0"+dest+" "+m_s.format('HH:mm:ss');
-                                let newEnd="2018-01-0"+dest+" "+m_e.format('HH:mm:ss');
-
-                                let ev=node.activeSched.events.filter(function(e) {
-                                    return event.id == e.id;
-                                });
-                                
-                                let r=node.rules.find(({ruleIdx}) => ruleIdx==ev[0].ruleIdx)
-
-                                node.maxEventId++;
-
-                                var eventData = {
-                                    id: node.maxEventId,
-                                    title: r.setName,
-                                    start: newStart,
-                                    end: newEnd,
-                                    s_dow:dest,
-                                    s_mod:ev[0].s_mod,
-                                    e_dow:dest,
-                                    e_mod:ev[0].e_mod,
-                                    stick: true,
-                                    backgroundColor: r.setColor,
-                                    ruleIdx:ev[0].ruleIdx
-                                };
-
-                                node.calendar.addEvent(eventData);
-                                node.activeSched.events.push(eventData);
-                            }
-                        });
-
+                        event.remove();
                     }
-                }
+                });
+
+                // copy the events starting on the source day, keeping their length
+                listEvent.forEach(event => {
+                    let m_s = moment(event.startStr);
+                    if (dayOf(m_s)!=src) return;
+                    let m_e = moment(event.endStr);
+                    let ev=node.activeSched.events.find(function(e) { return event.id == e.id; });
+                    if (ev===undefined) return;
+                    let r=node.rules.find(({ruleIdx}) => ruleIdx==ev.ruleIdx);
+                    if (r===undefined) return;
+
+                    let n_s = m_s.clone().add(delta,'days');
+                    let n_e = m_e.clone().add(delta,'days');
+                    node.maxEventId++;
+                    var eventData = {
+                        id: node.maxEventId,
+                        title: r.setName,
+                        start: n_s.format('YYYY-MM-DDTHH:mm:ss'),
+                        end: n_e.format('YYYY-MM-DDTHH:mm:ss'),
+                        s_dow:n_s.day(),
+                        s_mod:n_s.hours()*60+n_s.minutes(),
+                        e_dow:n_e.day(),
+                        e_mod:n_e.hours()*60+n_e.minutes(),
+                        stick: true,
+                        backgroundColor: r.setColor,
+                        ruleIdx:ev.ruleIdx
+                    };
+                    node.calendar.addEvent(eventData);
+                    node.activeSched.events.push(eventData);
+                });
+            }
 
             var setup = function(node) {
 
@@ -364,17 +371,17 @@
                            return;
                         }
 
-                        end=info.endStr;
-                        start=info.startStr;
+                        let end=info.endStr;
+                        let start=info.startStr;
 
-                        m_s = moment(start);
-                        m_e = moment(end);
+                        let m_s = moment(start);
+                        let m_e = moment(end);
                         
-                        s_dow=m_s.day();
-                        s_mod=m_s.hours()*60+m_s.minutes();
+                        let s_dow=m_s.day();
+                        let s_mod=m_s.hours()*60+m_s.minutes();
                                 
-                        e_dow=m_e.day();
-                        e_mod=m_e.hours()*60+m_e.minutes();
+                        let e_dow=m_e.day();
+                        let e_mod=m_e.hours()*60+m_e.minutes();
                         
                         let r=node.rules.find(({ruleIdx}) => ruleIdx==ctrl_i)
                         if (r===undefined){
@@ -421,8 +428,8 @@
                                 console.log("info.event.id:"+info.event.id+", e.id:"+e.id);
 
                                 found++;
-                                m_s = moment(info.event.startStr);
-                                m_e = moment(info.event.endStr);
+                                let m_s = moment(info.event.startStr);
+                                let m_e = moment(info.event.endStr);
                                 e.s_dow=m_s.day();
                                 e.s_mod=m_s.hours()*60+m_s.minutes();
                                 
@@ -443,8 +450,8 @@
 
                         node.activeSched.events.forEach(function(e) {
                             if(info.event.id == e.id) {
-                                m_s = moment(info.event.startStr);
-                                m_e = moment(info.event.endStr);
+                                let m_s = moment(info.event.startStr);
+                                let m_e = moment(info.event.endStr);
                                 e.s_dow=m_s.day();
                                 e.s_mod=m_s.hours()*60+m_s.minutes();
                                 
@@ -632,7 +639,7 @@
                     // When removing we need to remove all events linked to this ruleIdx
                     // for event in the calendar but also for all undispalyed schedules
 
-                    idx=node.rules[data].ruleIdx;
+                    let idx=node.rules[data].ruleIdx;
                     node.rules.splice(data,1);
                     $("#sched_btn_"+idx).remove();
 
@@ -701,25 +708,33 @@
             });
             
 
-            $.getScript('resources/node-red-contrib-vib-smart-scheduler/moment.min.js')
-            .done(function(data, textStatus, jqxhr) {
-            // $.getScript('resources/node-red-contrib-vib-smart-scheduler/fullcalendar.min.js')
-                $.getScript('https://cdn.jsdelivr.net/npm/@jaames/iro@5')
-                .done(function(data, textStatus, jqxhr) {
-                    $.getScript('https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js')
-                    .done(function(data, textStatus, jqxhr){
-                        setup(node);
-                    })
-                })
-                .fail(function(jqxhr, settings, exception ){
-                    console.log("failed to load fullcalendar.min.js");
-                    console.log(exception);
-                    console.log(exception.stack);
+            // Libraries are served by this package (resources/), so the editor also works without
+            // internet. 0.81 fetched them from cdn.jsdelivr.net each time and silently showed no calendar
+            // when that failed. The CDN is kept only as a fallback.
+            const RES='resources/node-red-contrib-vib-smart-scheduler/';
+            function loadScript(local, cdn){
+                return new Promise(function(resolve, reject){
+                    $.ajax({url:RES+local, dataType:'script', cache:true})
+                    .done(function(){ resolve(); })
+                    .fail(function(){
+                        if (!cdn) return reject(new Error(local));
+                        $.ajax({url:cdn, dataType:'script', cache:true})
+                        .done(function(){ resolve(); })
+                        .fail(function(){ reject(new Error(local)); });
+                    });
                 });
-
-            /*End Editprepare */    
-        });
-        
+            }
+            (window.moment ? Promise.resolve() : loadScript('moment.min.js'))
+            .then(function(){ return window.iro ? null : loadScript('iro-5.5.2.min.js','https://cdn.jsdelivr.net/npm/@jaames/iro@5'); })
+            .then(function(){ return window.FullCalendar ? null : loadScript('fullcalendar-6.1.9.global.min.js','https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js'); })
+            .then(function(){ setup(node); })
+            .catch(function(err){
+                console.log("smart-scheduler: could not load "+err.message);
+                $('#calendar').html('<div style="padding:10px;color:var(--red-ui-text-color-error,#c00)"><i class="fa fa-exclamation-triangle"></i> '+
+                    'The calendar could not be loaded ('+err.message+'). Set points and settings can still be edited; '+
+                    'the schedules are kept unchanged.</div>');
+            });
+        /*End Editprepare */
     },
     oneditsave: function() {
        
@@ -743,6 +758,12 @@
         });
         
         node.settingChanged="1"; // Refresh runtime value;
+
+        if (!Array.isArray(node.configuredSchedules)){
+            // The calendar never loaded: keep schedules and active schedule exactly as they were.
+            delete window.calendar;
+            return;
+        }
 
         node.activScheduleId=$("#node-input-activeSchedule").find(":selected").val();
         //node.triggerMode=$("#node-input-triggerMode").find(":selected").val();
@@ -862,12 +883,11 @@
     
     <div class="form-row"> 
         <label><span data-i18n=""> Clean</span></label>
-        <a id="node-input-EmptySched" title="Clone day" class="red-ui-button"><i class="fa fa-eraser fa-2"></i></a>
+        <a id="node-input-EmptySched" title="Remove all events of this schedule" class="red-ui-button"><i class="fa fa-eraser fa-2"></i></a>
     </div>
     
     <div class="form-row">
         <span id="sched_btn_grp" class="button-group"></span>
-        <link rel='stylesheet' href='resources/node-red-contrib-vib-smart-scheduler/fullcalendar.min.css' />
         <style type="text/css">
           .wc-business-hours {
             font-size: 1.0em;
@@ -894,9 +914,19 @@
     
     <div class="form-row">
         <label style="width:120px !important;" for="node-input-cycleDuration">Cycle</label>
-        <input type="text" title="override duration period" id="node-input-cycleDuration" style="width:60px !important; text-align: right;" placeholder="min"></input>
-        <label for="node-input-overrideDuration-2"> min</label>
+        <input type="text" title="how often the schedule is evaluated" id="node-input-cycleDuration" style="width:60px !important; text-align: right;" placeholder="min"></input>
+        <span> min</span>
     </div> 
+    <div class="form-row">
+        <label style="width:120px !important;" for="node-input-resendInterval">Re-send every</label>
+        <input type="text" title="re-send the current setpoint even when unchanged, so a valve that missed it gets it again (0 = only on change)" id="node-input-resendInterval" style="width:60px !important; text-align: right;" placeholder="min"></input>
+        <span> min (0 = only on change)</span>
+    </div>
+    <div class="form-row">
+        <label style="width:120px !important;" for="node-input-maxSp">Max setpoint</label>
+        <input type="text" title="ceiling for every setpoint sent: rules, default, manual and overrides" id="node-input-maxSp" style="width:60px !important; text-align: right;" placeholder="°C"></input>
+        <span> °C</span>
+    </div>
     <div class="form-row">      
         <p style="padding-top: 10px"><i class="fa fa-chain-broken"></i><b> Execution</b></p> 
     </div>

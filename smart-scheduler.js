@@ -1,10 +1,10 @@
 
 /*
 __   _____ ___ ___        Author: Vincent BESSON
- \ \ / /_ _| _ ) _ \      Release: 0.80
-  \ V / | || _ \   /      Date: 20251201
+ \ \ / /_ _| _ ) _ \      Release: 0.82
+  \ V / | || _ \   /      Date: 20261030
    \_/ |___|___/_|_\      Description: Nodered Heating Scheduler
-                2025      Licence: Creative Commons
+                2026      Licence: Creative Commons
 ______________________
 */ 
 
@@ -46,7 +46,7 @@ module.exports = function(RED) {
             this.schedules = n.schedules ? JSON.parse(n.schedules) : [];
         } catch (e) {
             this.schedules = [];
-            node.error("Error parsing schedules JSON: " + e.message);
+            this.error("Error parsing schedules JSON: " + e.message);
         }
 
         this.rules=n.rules;  
@@ -57,7 +57,16 @@ module.exports = function(RED) {
         this.overrideTs= n.overrideTs ? n.overrideTs : '0'                      // Timestamp of override mode start 
         this.overrideDuration=n.overrideDuration ? n.overrideDuration :"120"    // Duration of the override periode (set in setting)
         this.overrideSp=n.overrideSp ? n.overrideSp : "5"                       // Override set point by default
-        this.cycleDuration=n.cycleDuration ?n.cycleDuration: 1
+        this.cycleDuration=parseInt(n.cycleDuration) > 0 ? parseInt(n.cycleDuration) : 1
+        // 0.82 options
+        // resendInterval: re-send the current setpoint every N minutes even when unchanged, so a valve
+        //                 that missed a message gets it again (0 = only on change, as in 0.81).
+        // maxSp:          ceiling for every setpoint sent (schedule, default, manual and overrides).
+        this.resendInterval=(n.resendInterval!==undefined && n.resendInterval!=="" && !isNaN(n.resendInterval)) ? parseInt(n.resendInterval) : 15
+        this.maxSp=(n.maxSp!==undefined && n.maxSp!=="" && !isNaN(n.maxSp)) ? parseFloat(n.maxSp) : 24
+        this.lastSendTs=0
+        this.overrideExpiredTs=0                                                // when the last override ended
+        this.overrideExpiredSp=undefined                                        // its setpoint (loop guard)
         this.activeRuleIdx=0                                                    // Active Rule ID for the current event
         this.prevRuleIdx=0                                                      // Previous active Rule ID
 
@@ -81,7 +90,7 @@ module.exports = function(RED) {
             node.log(this.mqttSettings?.mqttHost);
         
          // START OF MQTT
-        if (this.mqttPrefix && this.mqttSettings.mqttRootPath)
+        if (this.mqttSettings && this.mqttSettings.mqttRootPath)
             this.mqttPrefix=this.mqttSettings.mqttRootPath
         else 
             this.mqttPrefix="homeassistant";
@@ -167,6 +176,7 @@ module.exports = function(RED) {
                 prevSp: node.prevSp,
                 activeRuleIdx: node.activeRuleIdx,
                 prevRuleIdx: node.prevRuleIdx,
+                configKey: configKey,
                 timestamp: Date.now()
             };
             
@@ -187,6 +197,10 @@ module.exports = function(RED) {
                 nlog("Error saving state to file: " + err.message, "error");
             }
         }
+
+        // The editor configuration that the saved state may override. If it changed since the state
+        // was saved (a deploy with a new active schedule, mode or duration), the editor wins.
+        const configKey = JSON.stringify([n.executionMode, n.activScheduleId, n.overrideDuration]);
 
         // Load saved state at startup
         let savedState = null;
@@ -213,6 +227,12 @@ module.exports = function(RED) {
             }
         }
         
+        if (savedState && savedState.configKey!==undefined && savedState.configKey!==configKey) {
+            nlog("Editor configuration changed since last run: saved mode/schedule ignored", "info");
+            node.activeSp = savedState.activeSp || 0;
+            node.prevSp = savedState.prevSp || 0;
+            savedState = null;
+        }
         if (savedState) {
             node.executionMode = savedState.executionMode || node.executionMode;
             node.overrideTs = savedState.overrideTs || node.overrideTs;
@@ -224,6 +244,17 @@ module.exports = function(RED) {
             node.activeRuleIdx = savedState.activeRuleIdx || 0;
             node.prevRuleIdx = savedState.prevRuleIdx || 0;
             nlog("Loaded saved state: mode=" + node.executionMode + ", sp=" + node.activeSp, "info");
+        }
+
+        // Setpoint sent to the valves: numeric, rounded, capped at maxSp. undefined when invalid.
+        function outSp(v) {
+            let f=parseFloat(v);
+            if (isNaN(f)) return undefined;
+            if (f>node.maxSp){
+                nlog(`Setpoint ${f}°C above max ${node.maxSp}°C, capped`,"warn");
+                f=node.maxSp;
+            }
+            return parseFloat(f.toFixed(2));
         }
 
         function isEqual(a, b) {
@@ -246,14 +277,31 @@ module.exports = function(RED) {
             }
 
             if (node.executionMode=="off"){
-                nlog("scheduler executionMode:off returning","debug");
-                
+                // 0.81 sent nothing, so every valve kept its last setpoint and kept heating.
+                // Off now sends the default setpoint (frost protection) to the valves.
+                nlog("scheduler executionMode:off, sending default setpoint","debug");
+                node.activeSp=node.defaultSp;
+                hasSpchanged = parseFloat(node.activeSp)!=parseFloat(node.prevSp);
+                msg.payload={
+                    command:"set",
+                    setpoint:outSp(node.defaultSp),
+                    previous_setpoint:outSp(node.prevSp),
+                    setname:"off",
+                    executionmode:node.executionMode,
+                    manualtrigger:node.manualTrigger,
+                    triggermode:node.triggerMode,
+                    hasspchanged:hasSpchanged
+                }
+                if (node.mqttclient!=null && node.mqttstack.length<100){
+                    node.mqttstack.push({topic:node.state_mode_topic,payload:{value:"off"},qos:0,retain:false});
+                    node.mqttstack.push({topic:node.state_current_sp_topic,payload:{value:parseFloat(node.defaultSp).toFixed(2)},qos:0,retain:false});
+                    sendMqtt();
+                }
                 node.status({
-                    fill:  'black',
+                    fill:  'grey',
                     shape: 'dot',
-                    text:("Off, no event")
+                    text:("Off, default sp: "+node.defaultSp+" °C")
                 });
-                return;
 
             }else if (node.executionMode=="manual"){                                            // Manual Execution
                 nlog("node.executionMode==manual","debug");
@@ -267,11 +315,9 @@ module.exports = function(RED) {
                 if (parseFloat(node.activeSp)!=parseFloat(node.prevSp))
                     hasSpchanged=true;
                 
-                if (node.mqttclient!=null && node.mqttstack.length<100){
-
-                    msg.payload={
+                msg.payload={
                         command:"set",
-                        setpoint:parseFloat(parseFloat(node.overrideSp).toFixed(2)),
+                        setpoint:outSp(node.overrideSp),
                         previous_setpoint:parseFloat(parseFloat(node.prevSp).toFixed(2)),
                         executionmode:node.executionMode,
                         setname:"override",
@@ -288,6 +334,7 @@ module.exports = function(RED) {
                         hasspchanged:hasSpchanged
                     }
 
+                if (node.mqttclient!=null && node.mqttstack.length<100){
                     let mqttmsg={topic:node.state_mode_topic,payload:{value:"manual"},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
 
@@ -350,8 +397,8 @@ module.exports = function(RED) {
                 
                 msg.payload={
                     command:"set",
-                    setpoint:parseFloat(parseFloat(node.defaultSp).toFixed(2)),
-                    previous_setpoint:parseFloat(parseFloat(node.prevSp).toFixed(2)),
+                    setpoint:outSp(node.defaultSp),
+                    previous_setpoint:outSp(node.prevSp),
                     setname:"default rule",
                     short_start:0,
                     short_end:0,
@@ -378,7 +425,11 @@ module.exports = function(RED) {
 
                 nlog("matchingEvent.ruleIdx:"+matchingEvent.ruleIdx + " eventId:"+matchingEvent.eventId,"debug");
                
-                var event=node.events.find((item) => parseInt(item.id)==parseInt(matchingEvent.eventId));
+                var event=(node.events||[]).find((item) => parseInt(item.id)==parseInt(matchingEvent.eventId));
+                if (event===undefined){
+                    nlog("matching event "+matchingEvent.eventId+" not found in the active schedule","error");
+                    return;
+                }
                 
                 var m_s=moment(event.start);
                 var m_e=moment(event.end);
@@ -438,8 +489,8 @@ module.exports = function(RED) {
 
                 msg.payload={
                     command:"set",
-                    setpoint:parseFloat(parseFloat(r.spTemp).toFixed(2)),
-                    previous_setpoint:parseFloat(parseFloat(node.prevSp).toFixed(2)),
+                    setpoint:outSp(r.spTemp),
+                    previous_setpoint:outSp(node.prevSp),
                     setname:r.setName,
                     short_start:d_s,
                     short_end:d_e,
@@ -458,14 +509,23 @@ module.exports = function(RED) {
             
             nlog(`-->setState(matchingEvent) output: activeRuleIdx:${node.activeRuleIdx}, prevRuleIdx:${node.prevRuleIdx}, activeSp:${node.activeSp}, prevSp:${node.prevSp}, noout:${node.noout}`, "debug");
             
+            if (msg.payload===undefined || msg.payload.setpoint===undefined){
+                nlog("invalid setpoint, nothing sent","error");
+                node.firstEval = false
+                node.manualTrigger = false
+                return;
+            }
+
+            let resendDue = node.resendInterval>0 && Date.now()-node.lastSendTs>=node.resendInterval*60000;
+
             if (node.manualTrigger || 
                 node.triggerMode == 'triggerMode.minutely' || 
                 node.activeRuleIdx !== node.prevRuleIdx || 
-                node.activeSp !== node.prevSp || node.firstEval==true) {
+                String(node.activeSp) !== String(node.prevSp) || node.firstEval==true || resendDue) {
                                 
                 if (/*!node.firstEval &&*/ !node.noout){
                     node.send(msg);
-                    
+                    node.lastSendTs=Date.now();
                     node.noout=false;
                 }else if (node.noout==true)
                     node.noout=false;
@@ -625,13 +685,15 @@ module.exports = function(RED) {
                 var now = moment();
                 if (now > ovrM){
                     node.executionMode='auto';
+                    node.overrideExpiredTs=Date.now();
+                    node.overrideExpiredSp=node.overrideSp;
                     nlog("   exceed OverrideDuration, executionMode=manual->auto","debug");
                     node.noout=false;
                     node.endOfOverride=true;
                 }
             }
 
-            let s=node.schedules.find(({idx}) => parseInt(idx)==parseInt(node.activScheduleId));
+            let s=(node.schedules||[]).find(({idx}) => parseInt(idx)==parseInt(node.activScheduleId));
             if (s===undefined){
                 node.activScheduleId=undefined;
                 nlog("scheduler is undefined returning","error");
@@ -641,20 +703,19 @@ module.exports = function(RED) {
             var matchEvent = scheduler.matchSchedule(s)
             nlog("MatchEvent: ruleIdx:"+matchEvent.ruleIdx+", eventId:"+matchEvent.eventId);
             
-            node.activeRuleIdx=parseInt(matchEvent.ruleIdx);
-
             return setState(matchEvent);
         }
 
         node.on('input', function(msg){
            
-            if (msg===undefined || msg.payload===undefined){
+            if (msg===undefined || msg.payload===undefined || msg.payload===null){
                nlog("invalid msg in input","error");
+               return;
             }
 
-            if (msg.payload.command!=undefined && msg.payload.command.match(/^(1|on|0|off|auto|override|trigger|schedule)$/i)) {
+            if (msg.payload.command!=undefined && String(msg.payload.command).match(/^(1|on|0|off|auto|override|trigger|schedule)$/i)) {
                 
-                let command=msg.payload.command;
+                let command=String(msg.payload.command).toLowerCase();
                 if (command == '1' || command == 'trigger' || command== 'on'){
                     node.manualTrigger = true;
                     if (command == 'on' && node.executionMode=="off")
@@ -714,12 +775,28 @@ module.exports = function(RED) {
                         return;
                     }
                        
+                    // The editor's "Override" checkbox was never checked in 0.81.
+                    if (!(node.allowOverride===true || node.allowOverride==='true')){
+                        nlog("Command:override ignored: Override not allowed on this scheduler","warn");
+                        return;
+                    }
+
+                    let ovSp=outSp(msg.payload.setpoint);
+
+                    // Loop guard: the same setpoint coming back right after its override expired is not a
+                    // person turning a knob, it is a device repeating a stale value (stuck TRV).
+                    if (node.overrideExpiredSp!==undefined && Date.now()-node.overrideExpiredTs<10*60000 &&
+                        parseFloat(node.overrideExpiredSp)==ovSp){
+                        nlog(`Command:override ${ovSp}°C ignored: same value as the override that just expired (stuck device?)`,"warn");
+                        return;
+                    }
+
                     node.executionMode="manual";
                     let now = new Date();
                     node.overrideTs=now.toISOString();
-                    node.overrideSp=msg.payload.setpoint;
+                    node.overrideSp=ovSp;
                     
-                    if (msg.payload.noout || msg.payload.noout==true){
+                    if (msg.payload.noout===true || msg.payload.noOut===true){
                         node.noout=true;
                         nlog("noout==true");
                     }
@@ -730,7 +807,7 @@ module.exports = function(RED) {
                 }
                 // Evaluate is done is not returned before by one of the above conditions
 
-                evaluate();
+                safeEvaluate();
             }
             else{
                 if (msg.payload.command!=undefined )
@@ -751,12 +828,23 @@ module.exports = function(RED) {
             }
         }
 
-        // re-evaluate every minute
-        node.evalInterval = setInterval(evaluate, node.cycleDuration *60000)
+        // Timer callbacks must never throw: an exception there takes Node-RED down.
+        function safeEvaluate(){
+            try {
+                evaluate();
+            } catch (e) {
+                node.error("evaluate() failed: "+e.message);
+            }
+        }
+
+        nlog(`Local time ${moment().format()} (UTC offset ${moment().format('Z')}); schedules use this time zone`,"info");
+
+        // re-evaluate every cycle
+        node.evalInterval = setInterval(safeEvaluate, node.cycleDuration *60000)
 
         // Run initially directly after start / deploy.
         if (node.triggerMode != 'triggerMode.statechange') {
-            setTimeout(evaluate, 1000)
+            node.startTimeout = setTimeout(safeEvaluate, 1000)
         }
 
         if (node.mqttSettings && node.mqttSettings.mqttHost){
@@ -774,14 +862,19 @@ module.exports = function(RED) {
                 connectTimeout: 4000,
                 username: node.mqttSettings.mqttUser,
                 password: node.mqttSettings.mqttPassword,
-                reconnectPeriod: 1000,
+                reconnectPeriod: 5000,
             });
 
             node.mqttclient.on('error', function (error) {
-                nlog("MQTT error:"+error,"error");
+                if (!node.mqttErrorLogged){                  // once per outage, not every retry
+                    node.warn("MQTT error: "+error+" (will keep retrying, logged once)");
+                    node.mqttErrorLogged=true;
+                }
             });
         
             node.mqttclient.on('connect', () => {
+                if (node.mqttErrorLogged) node.log('MQTT connected again');
+                node.mqttErrorLogged=false;
 
                 mqttAdvertise();
 
@@ -808,19 +901,7 @@ module.exports = function(RED) {
                 })
 
                 nlog('MQTT Connected start dequeuing',"debug"); 
-
-                let msg=node.mqttstack.shift();
-                while (msg!==undefined){
-                    if (msg.topic===undefined || msg.payload===undefined)
-                        return;
-                    node.mqttclient.publish(msg.topic,JSON.stringify(msg.payload),{ qos: msg.qos, retain: msg.retain },(error) => {
-                        if (error) {
-                            node.error(error)
-                        }
-                    });
-                    
-                    msg=node.mqttstack.shift();
-                }
+                sendMqtt();
             });
 
             node.mqttclient.on('message', (topic, payload) => {
@@ -838,7 +919,7 @@ module.exports = function(RED) {
                     let mqttmsg={topic:node.state_mode_topic,payload:{value:node.executionMode},qos:0,retain:false};
                     node.mqttstack.push(mqttmsg);
                 
-                    evaluate(); 
+                    safeEvaluate(); 
 
                 }else if(topic==node.set_schedule_list_topic){
                     let s=node.schedules.find(({name}) => name==p);
@@ -852,7 +933,7 @@ module.exports = function(RED) {
                         node.mqttstack.push(mqttmsg);
                         sendMqtt();
 
-                        evaluate();                     
+                        safeEvaluate();                     
                     }else{
                         nlog("MQTT received schedule name not found","error");
                     }
@@ -864,7 +945,7 @@ module.exports = function(RED) {
         function sendMqtt(){
 
             if (node.mqttclient==null || node.mqttclient.connected!=true){
-                node.warn("MQTT not connected...");
+                if (!node.mqttErrorLogged) nlog("MQTT not connected, messages queued","debug");
                 return;
             }
 
@@ -874,8 +955,10 @@ module.exports = function(RED) {
             
             while (msg!==undefined){
                 
-                if (msg.topic===undefined || msg.payload===undefined)
-                    return;
+                if (msg.topic===undefined || msg.payload===undefined){
+                    msg=node.mqttstack.shift();
+                    continue;
+                }
 
                 let msgstr=JSON.stringify(msg.payload);
                 node.mqttclient.publish(msg.topic.toString(),msgstr,{ qos: msg.qos, retain: msg.retain },(error) => {
@@ -891,6 +974,7 @@ module.exports = function(RED) {
             nlog("closing mqtt connexion","debug");
             node.log('MQTT disconnecting',"debug");
             clearInterval(node.evalInterval);
+            clearTimeout(node.startTimeout);
             if (node.mqttclient) {
                 node.mqttclient.end();
             }

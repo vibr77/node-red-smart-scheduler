@@ -1,0 +1,171 @@
+[
+ {
+  "id": "tab1",
+  "type": "tab",
+  "label": "HEATING"
+ },
+ {
+  "id": "ss1",
+  "type": "smart-scheduler-settings",
+  "name": "jarvis",
+  "mqttHost": "127.0.0.1",
+  "mqttPort": "18830",
+  "mqttUser": "",
+  "mqttRootPath": "homeassistant"
+ },
+ {
+  "id": "vs1",
+  "type": "smart-valve-settings",
+  "name": "jarvis",
+  "mqttHost": "127.0.0.1",
+  "mqttPort": "18830",
+  "mqttUser": "",
+  "mqttRootPath": "homeassistant",
+  "haDiscovery": false,
+  "haBaseTopic": "smartheating"
+ },
+ {
+  "id": "bs1",
+  "type": "smart-boiler-settings",
+  "name": "jarvis",
+  "mqttHost": "127.0.0.1",
+  "mqttPort": "18830",
+  "mqttUser": "",
+  "mqttRootPath": "homeassistant",
+  "haDiscovery": false,
+  "haBaseTopic": "smartheating"
+ },
+ {
+  "id": "sch1",
+  "type": "smart-scheduler",
+  "z": "tab1",
+  "name": "Parent scheduler",
+  "mqttSettings": "ss1",
+  "rules": [
+   {
+    "ruleIdx": 0,
+    "setName": "Cold",
+    "setColor": "#5e76ff",
+    "spTemp": "17"
+   },
+   {
+    "ruleIdx": 1,
+    "setName": "Eco",
+    "setColor": "#53cf95",
+    "spTemp": "19"
+   },
+   {
+    "ruleIdx": 2,
+    "setName": "Confort",
+    "setColor": "#ff9900",
+    "spTemp": "20"
+   },
+   {
+    "ruleIdx": 3,
+    "setName": "Confort+",
+    "setColor": "#ff3b30",
+    "spTemp": "21"
+   }
+  ],
+  "schedules": "[{\"idx\": 1, \"name\": \"Week\", \"events\": [{\"id\": 1, \"ruleIdx\": 2, \"title\": \"Confort\", \"start\": \"2018-01-01T06:00:00\", \"end\": \"2018-01-01T08:00:00\", \"s_dow\": 1, \"s_mod\": 360, \"e_dow\": 1, \"e_mod\": 480}, {\"id\": 2, \"ruleIdx\": 3, \"title\": \"Confort+\", \"start\": \"2018-01-01T18:00:00\", \"end\": \"2018-01-01T22:00:00\", \"s_dow\": 1, \"s_mod\": 1080, \"e_dow\": 1, \"e_mod\": 1320}, {\"id\": 3, \"ruleIdx\": 0, \"title\": \"Cold\", \"start\": \"2018-01-01T22:00:00\", \"end\": \"2018-01-02T06:00:00\", \"s_dow\": 1, \"s_mod\": 1320, \"e_dow\": 2, \"e_mod\": 360}, {\"id\": 4, \"ruleIdx\": 2, \"title\": \"Confort\", \"start\": \"2018-01-02T06:00:00\", \"end\": \"2018-01-02T08:00:00\", \"s_dow\": 2, \"s_mod\": 360, \"e_dow\": 2, \"e_mod\": 480}, {\"id\": 5, \"ruleIdx\": 3, \"title\": \"Confort+\", \"start\": \"2018-01-02T18:00:00\", \"end\": \"2018-01-02T22:00:00\", \"s_dow\": 2, \"s_mod\": 1080, \"e_dow\": 2, \"e_mod\": 1320}, {\"id\": 6, \"ruleIdx\": 0, \"title\": \"Cold\", \"start\": \"2018-01-02T22:00:00\", \"end\": \"2018-01-03T06:00:00\", \"s_dow\": 2, \"s_mod\": 1320, \"e_dow\": 3, \"e_mod\": 360}, {\"id\": 7, \"ruleIdx\": 2, \"title\": \"Confort\", \"start\": \"2018-01-03T06:00:00\", \"end\": \"2018-01-03T08:00:00\", \"s_dow\": 3, \"s_mod\": 360, \"e_dow\": 3, \"e_mod\": 480}, {\"id\": 8, \"ruleIdx\": 3, \"title\": \"Confort+\", \"start\": \"2018-01-03T18:00:00\", \"end\": \"2018-01-03T22:00:00\", \"s_dow\": 3, \"s_mod\": 1080, \"e_dow\": 3, \"e_mod\": 1320}, {\"id\": 9, \"ruleIdx\": 0, \"title\": \"Cold\", \"start\": \"2018-01-03T22:00:00\", \"end\": \"2018-01-04T06:00:00\", \"s_dow\": 3, \"s_mod\": 1320, \"e_dow\": 4, \"e_mod\": 360}, {\"id\": 10, \"ruleIdx\": 2, \"title\": \"Confort\", \"start\": \"2018-01-04T06:00:00\", \"end\": \"2018-01-04T08:00:00\", \"s_dow\": 4, \"s_mod\": 360, \"e_dow\": 4, \"e_mod\": 480}, {\"id\": 11, \"ruleIdx\": 3, \"title\": \"Confort+\", \"start\": \"2018-01-04T18:00:00\", \"end\": \"2018-01-04T22:00:00\", \"s_dow\": 4, \"s_mod\": 1080, \"e_dow\": 4, \"e_mod\": 1320}, {\"id\": 12, \"ruleIdx\": 0, \"title\": \"Cold\", \"start\": \"2018-01-04T22:00:00\", \"end\": \"2018-01-05T06:00:00\", \"s_dow\": 4, \"s_mod\": 1320, \"e_dow\": 5, \"e_mod\": 360}, {\"id\": 13, \"ruleIdx\": 2, \"title\": \"Confort\", \"start\": \"2018-01-05T06:00:00\", \"end\": \"2018-01-05T08:00:00\", \"s_dow\": 5, \"s_mod\": 360, \"e_dow\": 5, \"e_mod\": 480}, {\"id\": 14, \"ruleIdx\": 3, \"title\": \"Confort+\", \"start\": \"2018-01-05T18:00:00\", \"end\": \"2018-01-05T22:00:00\", \"s_dow\": 5, \"s_mod\": 1080, \"e_dow\": 5, \"e_mod\": 1320}, {\"id\": 15, \"ruleIdx\": 0, \"title\": \"Cold\", \"start\": \"2018-01-05T22:00:00\", \"end\": \"2018-01-06T06:00:00\", \"s_dow\": 5, \"s_mod\": 1320, \"e_dow\": 6, \"e_mod\": 360}]}, {\"idx\": 2, \"name\": \"Holidays\", \"events\": [{\"id\": 100, \"ruleIdx\": 1, \"title\": \"Eco\", \"start\": \"2018-01-06T08:00:00\", \"end\": \"2018-01-06T22:00:00\", \"s_dow\": 6, \"s_mod\": 480, \"e_dow\": 6, \"e_mod\": 1320}]}]",
+  "activScheduleId": "1",
+  "triggerMode": "triggerMode.statechange.startup",
+  "defaultSp": "5",
+  "allowOverride": true,
+  "executionMode": "auto",
+  "overrideDuration": "120",
+  "overrideTs": "5",
+  "overrideSp": "5",
+  "settingChanged": "0",
+  "uniqueId": "Parent_sched",
+  "cycleDuration": "1",
+  "resendInterval": "15",
+  "maxSp": "24",
+  "debugInfo": "none",
+  "x": 200,
+  "y": 100,
+  "wires": [
+   [
+    "sv1",
+    "dbg1"
+   ]
+  ]
+ },
+ {
+  "id": "sv1",
+  "type": "smart-valve",
+  "z": "tab1",
+  "name": "SV_PARENT",
+  "mqttSettings": "vs1",
+  "groupId": "1",
+  "temperatureSensorStateTopic": "zigbee2mqtt/TH_PARENT",
+  "temperatureSensorKey": "temperature",
+  "valveSetpointStateTopic": "zigbee2mqtt/TRV_PARENT",
+  "valveSetpointSetTopic": "zigbee2mqtt/TRV_PARENT/set/occupied_heating_setpoint",
+  "valveSetpointKey": "occupied_heating_setpoint",
+  "valveTemperatureSetTopic": "zigbee2mqtt/TRV_PARENT/set/external_temperature_input",
+  "valveTemperatureKey": "notuse",
+  "valveModeStateTopic": "zigbee2mqtt/TRV_PARENT",
+  "valveModeSetTopic": "zigbee2mqtt/TRV_PARENT/set/system_mode",
+  "valveModeKey": "system_mode",
+  "OverrideDuration": "60",
+  "valveTemperatureSensorTypeSetTopic": "zigbee2mqtt/TRV_PARENT/set/sensor",
+  "valveTemperatureSensorTypePayload": "external",
+  "msgStormMaxMsg": "20",
+  "cycleDuration": "1",
+  "offSp": "5",
+  "spUpdateMode": "spUpdateMode.statechange",
+  "adjustValveTempMode": "adjustValveTempMode.adjust.startup",
+  "debugInfo": "none",
+  "allowOverride": false,
+  "x": 450,
+  "y": 100,
+  "wires": [
+   [
+    "sb1"
+   ]
+  ]
+ },
+ {
+  "id": "sb1",
+  "type": "smart-boiler",
+  "z": "tab1",
+  "name": "RSL_BOILER",
+  "mqttSettings": "bs1",
+  "boilerCurrentTemperatureSetTopic": "homeassistant/OT_BOILER_64/currentTemperature/state",
+  "boilerCurrentTemperatureKey": "value",
+  "boilerSpSetTopic": "homeassistant/OT_BOILER_64/setpointTemperature/set",
+  "boilerSpKey": "",
+  "boilerLeadingDeviceSetTopic": "homeassistant/OT_BOILER_64/leadingDevice/state",
+  "boilerLeadingDeviceIdSetTopic": "homeassistant/OT_BOILER_64/leadingDeviceId/state",
+  "boilerLeadingDeviceKey": "value",
+  "boilerSwCentralHeatingSetTopic": "homeassistant/OT_BOILER_64/swCentralHeating/set",
+  "boilerSwCentralHeatingKey": "",
+  "boilerEntityID": "OT_BOILER_64",
+  "mqttUpdates": true,
+  "debugInfo": "none",
+  "boilerSecurity": true,
+  "triggerMode": "triggerMode.everyCycle",
+  "cycleDuration": "60",
+  "outputUpdates": true,
+  "defaultSp": "7",
+  "defaultTemp": "10",
+  "maxDurationSinceLastInput": "15",
+  "x": 700,
+  "y": 100,
+  "wires": [
+   []
+  ]
+ },
+ {
+  "id": "dbg1",
+  "type": "debug",
+  "z": "tab1",
+  "name": "sched out",
+  "active": true,
+  "complete": "payload",
+  "x": 450,
+  "y": 180,
+  "wires": []
+ }
+]
